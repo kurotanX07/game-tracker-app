@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ProgressBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Game } from '../@types';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
-type GameCardNavigationProp = StackNavigationProp<RootStackParamList, 'GameDetail'>;
+// 型定義の修正（React Navigation 7での変更対応）
+type GameCardNavigationProp = any; // 互換性のために一時的に any 型に
 
 interface GameCardProps {
   game: Game;

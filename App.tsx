@@ -3,7 +3,6 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
-import { AdService } from './src/services/AdService';
 import { TaskProvider } from './src/contexts/TaskContext';
 
 const App = () => {
@@ -12,7 +11,8 @@ const App = () => {
       <TaskProvider>
         <NavigationContainer>
           <AppNavigator />
-          <AdService.BannerAd />
+          {/* 広告コンポーネントを一時的にコメントアウト */}
+          {/* <AdService.BannerAd /> */}
         </NavigationContainer>
       </TaskProvider>
     </SafeAreaProvider>

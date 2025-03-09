@@ -21,8 +21,9 @@ export type MainTabParamList = {
   Settings: undefined;
 };
 
-const Stack = createStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator<MainTabParamList>();
+// React Navigation 7対応のための修正
+const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
 
 // メインタブナビゲーション
 const MainTabNavigator: React.FC = () => {

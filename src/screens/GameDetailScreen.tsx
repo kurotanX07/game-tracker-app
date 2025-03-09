@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,19 +9,19 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTaskContext } from '../contexts/TaskContext';
 import { DailyTaskItem, CustomTaskItem } from '../components/TaskItem';
 import { CustomTask } from '../@types';
 import { v4 as uuidv4 } from 'uuid';
 
-type GameDetailScreenRouteProp = RouteProp<RootStackParamList, 'GameDetail'>;
+// 現在のバージョンのReact Navigationに対応するため型を変更
+type GameDetailScreenRouteProp = any;
 
 const GameDetailScreen: React.FC = () => {
   const route = useRoute<GameDetailScreenRouteProp>();
   const navigation = useNavigation();
-  const { gameId } = route.params;
+  const { gameId } = route.params as { gameId: string };
   const { games, updateDailyTask, addCustomTask, removeGame } = useTaskContext();
 
   const game = games.find(g => g.id === gameId);

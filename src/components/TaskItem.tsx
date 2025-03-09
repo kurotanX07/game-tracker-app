@@ -29,7 +29,7 @@ export const DailyTaskItem: React.FC<DailyTaskItemProps> = ({ task, onToggle }) 
         </Text>
         {task.lastCompletedAt && (
           <Text style={styles.dateText}>
-            最終完了: {task.lastCompletedAt.toLocaleString()}
+            最終完了: {new Date(task.lastCompletedAt).toLocaleString()}
           </Text>
         )}
       </View>
@@ -159,5 +159,3 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
-export default { DailyTaskItem, CustomTaskItem };

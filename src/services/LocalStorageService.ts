@@ -1,14 +1,29 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Game, DailyTask, CustomTask } from '../@types';
-import { v4 as uuidv4 } from 'uuid';
 
 class LocalStorageService {
-  private static GAMES_STORAGE_KEY = 'user_games';
+  static GAMES_STORAGE_KEY = 'user_games';
+
+  // JSON文字列化前にDateオブジェクトを処理
+  private static replacer(key: string, value: any) {
+    if (key === 'lastCompletedAt' && value instanceof Date) {
+      return value.toISOString();
+    }
+    return value;
+  }
+
+  // JSON解析後にDateオブジェクトを復元
+  private static reviver(key: string, value: any) {
+    if (key === 'lastCompletedAt' && typeof value === 'string') {
+      return new Date(value);
+    }
+    return value;
+  }
 
   // ゲームデータの保存
   static async saveGames(games: Game[]): Promise<void> {
     try {
-      const jsonValue = JSON.stringify(games);
+      const jsonValue = JSON.stringify(games, this.replacer);
       await AsyncStorage.setItem(this.GAMES_STORAGE_KEY, jsonValue);
     } catch (error) {
       console.error('ゲームデータの保存エラー:', error);
@@ -19,7 +34,9 @@ class LocalStorageService {
   static async getGames(): Promise<Game[]> {
     try {
       const jsonValue = await AsyncStorage.getItem(this.GAMES_STORAGE_KEY);
-      return jsonValue != null ? JSON.parse(jsonValue) : [];
+      return jsonValue != null 
+        ? JSON.parse(jsonValue, this.reviver) 
+        : [];
     } catch (error) {
       console.error('ゲームデータの取得エラー:', error);
       return [];

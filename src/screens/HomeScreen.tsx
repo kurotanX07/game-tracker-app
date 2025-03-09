@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from '../navigation/AppNavigator';
 import GameCard from '../components/GameCard';
 import { useTaskContext } from '../contexts/TaskContext';
 
-type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'MainTab'>;
+// React Navigation 7対応のため型を変更
+type HomeScreenNavigationProp = any;
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();

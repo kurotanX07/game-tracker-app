@@ -30,7 +30,7 @@ const GameAddScreen: React.FC = () => {
 
   // 時間選択ハンドラ
   const handleTimeChange = (event: any, selectedDate?: Date) => {
-    setShowTimePicker(false);
+    setShowTimePicker(Platform.OS === 'ios');
     if (selectedDate) {
       const hours = selectedDate.getHours();
       const minutes = selectedDate.getMinutes();
