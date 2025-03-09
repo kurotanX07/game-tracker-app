@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Game } from '../@types';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { useTheme } from '../contexts/ThemeContext';
 
 // 型定義の修正（React Navigation 7での変更対応）
 type GameCardNavigationProp = any; // 互換性のために一時的に any 型に
@@ -13,6 +14,7 @@ interface GameCardProps {
 
 const GameCard: React.FC<GameCardProps> = ({ game }) => {
   const navigation = useNavigation<GameCardNavigationProp>();
+  const { colors } = useTheme();
 
   // デイリータスクの完了率を計算
   const completionRate = game.dailyTasks.length > 0 
@@ -25,17 +27,35 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
   };
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress}>
+    <TouchableOpacity 
+      style={[
+        styles.card, 
+        { 
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          shadowColor: colors.text
+        }
+      ]} 
+      onPress={handlePress}
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>{game.name}</Text>
-        <Text style={styles.resetTime}>リセット: {game.resetTime}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{game.name}</Text>
+        <Text style={[styles.resetTime, { color: colors.subText }]}>リセット: {game.resetTime}</Text>
       </View>
 
       <View style={styles.progressSection}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${completionRate * 100}%` }]} />
+        <View style={[styles.progressBar, { backgroundColor: colors.progressBar }]}>
+          <View 
+            style={[
+              styles.progressFill, 
+              { 
+                width: `${completionRate * 100}%`,
+                backgroundColor: colors.progressFill
+              }
+            ]} 
+          />
         </View>
-        <Text style={styles.progressText}>
+        <Text style={[styles.progressText, { color: colors.subText }]}>
           {game.dailyTasks.filter(task => task.completed).length}/{game.dailyTasks.length}
         </Text>
       </View>
@@ -43,12 +63,24 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
       <View style={styles.tasksPreview}>
         {game.dailyTasks.slice(0, 2).map((task) => (
           <View key={task.id} style={styles.taskItem}>
-            <View style={[styles.taskStatus, task.completed ? styles.completed : styles.pending]} />
-            <Text style={styles.taskName} numberOfLines={1}>{task.name}</Text>
+            <View 
+              style={[
+                styles.taskStatus, 
+                task.completed 
+                  ? [styles.completed, { backgroundColor: colors.success }] 
+                  : [styles.pending, { backgroundColor: colors.border }]
+              ]} 
+            />
+            <Text 
+              style={[styles.taskName, { color: task.completed ? colors.subText : colors.text }]} 
+              numberOfLines={1}
+            >
+              {task.name}
+            </Text>
           </View>
         ))}
         {game.dailyTasks.length > 2 && (
-          <Text style={styles.moreText}>他 {game.dailyTasks.length - 2} 個のタスク...</Text>
+          <Text style={[styles.moreText, { color: colors.subText }]}>他 {game.dailyTasks.length - 2} 個のタスク...</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -57,12 +89,10 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginVertical: 8,
     marginHorizontal: 16,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -77,11 +107,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
   },
   resetTime: {
     fontSize: 12,
-    color: '#666',
   },
   progressSection: {
     flexDirection: 'row',
@@ -91,19 +119,16 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 8,
-    backgroundColor: '#eee',
     borderRadius: 4,
     overflow: 'hidden',
     marginRight: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#4CAF50',
     borderRadius: 4,
   },
   progressText: {
     fontSize: 14,
-    color: '#666',
     width: 40,
     textAlign: 'right',
   },
@@ -121,20 +146,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 8,
   },
-  completed: {
-    backgroundColor: '#4CAF50',
-  },
-  pending: {
-    backgroundColor: '#E0E0E0',
-  },
+  completed: {},
+  pending: {},
   taskName: {
     fontSize: 14,
-    color: '#333',
     flex: 1,
   },
   moreText: {
     fontSize: 12,
-    color: '#999',
     marginTop: 4,
     textAlign: 'right',
   },

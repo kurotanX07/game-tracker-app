@@ -13,11 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LocalStorageService from '../services/LocalStorageService';
 import { useTaskContext } from '../contexts/TaskContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const SettingsScreen: React.FC = () => {
   const { fetchGames } = useTaskContext();
+  const { theme, colors, toggleTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 
   // 通知設定切り替え
   const toggleNotifications = () => {
@@ -25,15 +26,6 @@ const SettingsScreen: React.FC = () => {
     Alert.alert(
       '通知設定',
       '通知機能は現在のバージョンでは利用できません。今後のアップデートをお待ちください。'
-    );
-  };
-
-  // ダークモード切り替え
-  const toggleDarkMode = () => {
-    setDarkModeEnabled(previousState => !previousState);
-    Alert.alert(
-      'ダークモード',
-      'ダークモード機能は現在のバージョンでは利用できません。今後のアップデートをお待ちください。'
     );
   };
 
@@ -100,74 +92,74 @@ const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>一般設定</Text>
-        <View style={styles.settingItem}>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.subText, borderBottomColor: colors.border }]}>一般設定</Text>
+        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
           <View style={styles.settingLabel}>
-            <Ionicons name="notifications-outline" size={24} color="#333" />
-            <Text style={styles.settingText}>通知</Text>
+            <Ionicons name="notifications-outline" size={24} color={colors.text} />
+            <Text style={[styles.settingText, { color: colors.text }]}>通知</Text>
           </View>
           <Switch
             value={notificationsEnabled}
             onValueChange={toggleNotifications}
-            trackColor={{ false: '#DDDDDD', true: '#6200EE' }}
+            trackColor={{ false: '#DDDDDD', true: colors.primary }}
             thumbColor="#FFFFFF"
           />
         </View>
-        <View style={styles.settingItem}>
+        <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
           <View style={styles.settingLabel}>
-            <Ionicons name="moon-outline" size={24} color="#333" />
-            <Text style={styles.settingText}>ダークモード</Text>
+            <Ionicons name={theme === 'dark' ? 'moon' : 'moon-outline'} size={24} color={colors.text} />
+            <Text style={[styles.settingText, { color: colors.text }]}>ダークモード</Text>
           </View>
           <Switch
-            value={darkModeEnabled}
-            onValueChange={toggleDarkMode}
-            trackColor={{ false: '#DDDDDD', true: '#6200EE' }}
+            value={theme === 'dark'}
+            onValueChange={toggleTheme}
+            trackColor={{ false: '#DDDDDD', true: colors.primary }}
             thumbColor="#FFFFFF"
           />
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>データ管理</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={handleExportData}>
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.subText, borderBottomColor: colors.border }]}>データ管理</Text>
+        <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handleExportData}>
           <View style={styles.menuItemContent}>
-            <Ionicons name="download-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>データのエクスポート</Text>
+            <Ionicons name="download-outline" size={24} color={colors.text} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>データのエクスポート</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#999" />
+          <Ionicons name="chevron-forward" size={20} color={colors.subText} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={handleImportData}>
+        <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handleImportData}>
           <View style={styles.menuItemContent}>
-            <Ionicons name="upload-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>データのインポート</Text>
+            <Ionicons name="upload-outline" size={24} color={colors.text} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>データのインポート</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#999" />
+          <Ionicons name="chevron-forward" size={20} color={colors.subText} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={handleResetData}>
+        <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handleResetData}>
           <View style={styles.menuItemContent}>
-            <Ionicons name="trash-outline" size={24} color="#D32F2F" />
-            <Text style={[styles.menuItemText, { color: '#D32F2F' }]}>データのリセット</Text>
+            <Ionicons name="trash-outline" size={24} color={colors.error} />
+            <Text style={[styles.menuItemText, { color: colors.error }]}>データのリセット</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#999" />
+          <Ionicons name="chevron-forward" size={20} color={colors.subText} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>サポート</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={handleOpenSupport}>
+      <View style={[styles.section, { backgroundColor: colors.card }]}>
+        <Text style={[styles.sectionTitle, { color: colors.subText, borderBottomColor: colors.border }]}>サポート</Text>
+        <TouchableOpacity style={[styles.menuItem, { borderBottomColor: colors.border }]} onPress={handleOpenSupport}>
           <View style={styles.menuItemContent}>
-            <Ionicons name="help-circle-outline" size={24} color="#333" />
-            <Text style={styles.menuItemText}>ヘルプとサポート</Text>
+            <Ionicons name="help-circle-outline" size={24} color={colors.text} />
+            <Text style={[styles.menuItemText, { color: colors.text }]}>ヘルプとサポート</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#999" />
+          <Ionicons name="chevron-forward" size={20} color={colors.subText} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.appInfo}>
-        <Text style={styles.appVersion}>バージョン: 1.0.0</Text>
-        <Text style={styles.copyright}>© 2025 ゲームデイリータスク</Text>
+        <Text style={[styles.appVersion, { color: colors.subText }]}>バージョン: 1.0.0</Text>
+        <Text style={[styles.copyright, { color: colors.subText }]}>© 2025 ゲームデイリータスク</Text>
       </View>
     </ScrollView>
   );
@@ -176,10 +168,8 @@ const SettingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   section: {
-    backgroundColor: '#FFF',
     marginTop: 16,
     borderRadius: 8,
     overflow: 'hidden',
@@ -187,12 +177,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#666',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
-    backgroundColor: '#F9F9F9',
   },
   settingItem: {
     flexDirection: 'row',
@@ -201,7 +188,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
   },
   settingLabel: {
     flexDirection: 'row',
@@ -209,7 +195,6 @@ const styles = StyleSheet.create({
   },
   settingText: {
     fontSize: 16,
-    color: '#333',
     marginLeft: 12,
   },
   menuItem: {
@@ -219,7 +204,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
   },
   menuItemContent: {
     flexDirection: 'row',
@@ -227,7 +211,6 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    color: '#333',
     marginLeft: 12,
   },
   appInfo: {
@@ -236,12 +219,10 @@ const styles = StyleSheet.create({
   },
   appVersion: {
     fontSize: 14,
-    color: '#999',
     marginBottom: 4,
   },
   copyright: {
     fontSize: 12,
-    color: '#999',
   },
 });
 

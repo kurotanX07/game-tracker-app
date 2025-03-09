@@ -14,6 +14,8 @@ import { useTaskContext } from '../contexts/TaskContext';
 import { DailyTaskItem, CustomTaskItem } from '../components/TaskItem';
 import { CustomTask } from '../@types';
 import { v4 as uuidv4 } from 'uuid';
+import { useTheme } from '../contexts/ThemeContext';
+import { AdService } from '../services/AdService';
 
 // 現在のバージョンのReact Navigationに対応するため型を変更
 type GameDetailScreenRouteProp = any;
@@ -23,6 +25,7 @@ const GameDetailScreen: React.FC = () => {
   const navigation = useNavigation();
   const { gameId } = route.params as { gameId: string };
   const { games, updateDailyTask, addCustomTask, removeGame } = useTaskContext();
+  const { colors } = useTheme();
 
   const game = games.find(g => g.id === gameId);
 
@@ -34,10 +37,10 @@ const GameDetailScreen: React.FC = () => {
   // ゲームが見つからない場合
   if (!game) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>ゲームが見つかりませんでした</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>ゲームが見つかりませんでした</Text>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: colors.primary }]}
           onPress={() => navigation.goBack()}
         >
           <Text style={styles.backButtonText}>戻る</Text>
@@ -47,12 +50,15 @@ const GameDetailScreen: React.FC = () => {
   }
 
   // デイリータスク完了時のハンドラ
-  const handleTaskToggle = (taskId: string) => {
-    updateDailyTask(gameId, taskId);
+  const handleTaskToggle = async (taskId: string) => {
+    await updateDailyTask(gameId, taskId);
+    
+    // アドカウンターを増加させ、条件を満たすと広告を表示
+    await AdService.incrementAdCounter();
   };
 
   // カスタムタスク追加
-  const handleAddCustomTask = () => {
+  const handleAddCustomTask = async () => {
     if (newTaskName.trim() === '') {
       Alert.alert('エラー', 'タスク名を入力してください');
       return;
@@ -76,7 +82,11 @@ const GameDetailScreen: React.FC = () => {
       newTask.maxValue = maxValue;
     }
 
-    addCustomTask(gameId, newTask);
+    await addCustomTask(gameId, newTask);
+    
+    // 広告表示の可能性
+    await AdService.incrementAdCounter();
+    
     setModalVisible(false);
     setNewTaskName('');
     setTaskType('checkbox');
@@ -93,8 +103,12 @@ const GameDetailScreen: React.FC = () => {
         {
           text: '削除',
           style: 'destructive',
-          onPress: () => {
-            removeGame(gameId);
+          onPress: async () => {
+            await removeGame(gameId);
+            
+            // ゲーム削除時は確率高めで広告表示
+            await AdService.showInterstitial();
+            
             navigation.goBack();
           },
         },
@@ -103,15 +117,15 @@ const GameDetailScreen: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.gameName}>{game.name}</Text>
-          <Text style={styles.resetTime}>リセット時間: {game.resetTime}</Text>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <Text style={[styles.gameName, { color: colors.text }]}>{game.name}</Text>
+          <Text style={[styles.resetTime, { color: colors.subText }]}>リセット時間: {game.resetTime}</Text>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>デイリータスク</Text>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>デイリータスク</Text>
           <View style={styles.taskList}>
             {game.dailyTasks.map(task => (
               <DailyTaskItem
@@ -123,11 +137,11 @@ const GameDetailScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>カスタムタスク</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>カスタムタスク</Text>
             <TouchableOpacity
-              style={styles.addButton}
+              style={[styles.addButton, { backgroundColor: colors.primary }]}
               onPress={() => setModalVisible(true)}
             >
               <Text style={styles.addButtonText}>追加</Text>
@@ -135,7 +149,7 @@ const GameDetailScreen: React.FC = () => {
           </View>
           <View style={styles.taskList}>
             {game.customTasks.length === 0 ? (
-              <Text style={styles.emptyText}>カスタムタスクはまだありません</Text>
+              <Text style={[styles.emptyText, { color: colors.subText }]}>カスタムタスクはまだありません</Text>
             ) : (
               game.customTasks.map(task => (
                 <CustomTaskItem
@@ -148,8 +162,11 @@ const GameDetailScreen: React.FC = () => {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteGame}>
-          <Text style={styles.deleteButtonText}>ゲームを削除</Text>
+        <TouchableOpacity 
+          style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
+          onPress={handleDeleteGame}
+        >
+          <Text style={[styles.deleteButtonText, { color: colors.error }]}>ゲームを削除</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -161,18 +178,23 @@ const GameDetailScreen: React.FC = () => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>カスタムタスクを追加</Text>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>カスタムタスクを追加</Text>
 
-            <Text style={styles.modalLabel}>タスク名</Text>
+            <Text style={[styles.modalLabel, { color: colors.text }]}>タスク名</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { 
+                backgroundColor: colors.background, 
+                borderColor: colors.border,
+                color: colors.text
+              }]}
               value={newTaskName}
               onChangeText={setNewTaskName}
               placeholder="タスク名を入力"
+              placeholderTextColor={colors.subText}
             />
 
-            <Text style={styles.modalLabel}>タスクタイプ</Text>
+            <Text style={[styles.modalLabel, { color: colors.text }]}>タスクタイプ</Text>
             <View style={styles.radioGroup}>
               <TouchableOpacity
                 style={styles.radioOption}
@@ -181,10 +203,11 @@ const GameDetailScreen: React.FC = () => {
                 <View 
                   style={[
                     styles.radioButton,
-                    taskType === 'checkbox' && styles.radioButtonSelected
+                    { borderColor: colors.primary },
+                    taskType === 'checkbox' && [styles.radioButtonSelected, { backgroundColor: colors.primary }]
                   ]}
                 />
-                <Text style={styles.radioLabel}>チェックボックス</Text>
+                <Text style={[styles.radioLabel, { color: colors.text }]}>チェックボックス</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -194,35 +217,41 @@ const GameDetailScreen: React.FC = () => {
                 <View 
                   style={[
                     styles.radioButton,
-                    taskType === 'counter' && styles.radioButtonSelected
+                    { borderColor: colors.primary },
+                    taskType === 'counter' && [styles.radioButtonSelected, { backgroundColor: colors.primary }]
                   ]}
                 />
-                <Text style={styles.radioLabel}>カウンター</Text>
+                <Text style={[styles.radioLabel, { color: colors.text }]}>カウンター</Text>
               </TouchableOpacity>
             </View>
 
             {taskType === 'counter' && (
               <>
-                <Text style={styles.modalLabel}>最大値</Text>
+                <Text style={[styles.modalLabel, { color: colors.text }]}>最大値</Text>
                 <TextInput
-                  style={styles.modalInput}
+                  style={[styles.modalInput, { 
+                    backgroundColor: colors.background, 
+                    borderColor: colors.border,
+                    color: colors.text
+                  }]}
                   value={counterMaxValue}
                   onChangeText={setCounterMaxValue}
                   keyboardType="numeric"
                   placeholder="最大値を入力"
+                  placeholderTextColor={colors.subText}
                 />
               </>
             )}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
+                style={[styles.modalCancelButton, { borderColor: colors.border }]}
                 onPress={() => setModalVisible(false)}
               >
-                <Text style={styles.modalCancelButtonText}>キャンセル</Text>
+                <Text style={[styles.modalCancelButtonText, { color: colors.subText }]}>キャンセル</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalAddButton}
+                style={[styles.modalAddButton, { backgroundColor: colors.primary }]}
                 onPress={handleAddCustomTask}
               >
                 <Text style={styles.modalAddButtonText}>追加</Text>
@@ -238,7 +267,6 @@ const GameDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   centerContainer: {
     flex: 1,
@@ -248,12 +276,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#D32F2F',
     marginBottom: 16,
     textAlign: 'center',
   },
   backButton: {
-    backgroundColor: '#6200EE',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -267,24 +293,19 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   gameName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 4,
   },
   resetTime: {
     fontSize: 14,
-    color: '#666',
   },
   section: {
     padding: 16,
     marginTop: 8,
-    backgroundColor: '#FFF',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -295,7 +316,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 12,
   },
   taskList: {
@@ -303,12 +323,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#999',
     textAlign: 'center',
     paddingVertical: 16,
   },
   addButton: {
-    backgroundColor: '#6200EE',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -320,14 +338,11 @@ const styles = StyleSheet.create({
   deleteButton: {
     margin: 16,
     padding: 16,
-    backgroundColor: '#FFF',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#D32F2F',
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: '#D32F2F',
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -339,7 +354,6 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '80%',
-    backgroundColor: '#FFF',
     borderRadius: 12,
     padding: 20,
     shadowColor: '#000',
@@ -351,24 +365,20 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
     marginBottom: 16,
     textAlign: 'center',
   },
   modalLabel: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
     marginTop: 12,
     marginBottom: 8,
   },
   modalInput: {
-    backgroundColor: '#F5F5F5',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
   },
   radioGroup: {
     marginVertical: 8,
@@ -383,15 +393,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#6200EE',
     marginRight: 10,
   },
-  radioButtonSelected: {
-    backgroundColor: '#6200EE',
-  },
+  radioButtonSelected: {},
   radioLabel: {
     fontSize: 16,
-    color: '#333',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -403,17 +409,14 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
     alignItems: 'center',
     marginRight: 8,
   },
   modalCancelButtonText: {
-    color: '#666',
     fontWeight: 'bold',
   },
   modalAddButton: {
     flex: 1,
-    backgroundColor: '#6200EE',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',

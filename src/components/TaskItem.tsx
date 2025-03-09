@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DailyTask, CustomTask } from '../@types';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface DailyTaskItemProps {
   task: DailyTask;
@@ -14,21 +15,42 @@ interface CustomTaskItemProps {
 }
 
 export const DailyTaskItem: React.FC<DailyTaskItemProps> = ({ task, onToggle }) => {
+  const { colors } = useTheme();
+  
   return (
     <TouchableOpacity 
-      style={styles.container} 
+      style={[
+        styles.container, 
+        { 
+          backgroundColor: colors.card,
+          shadowColor: colors.text,
+          borderColor: colors.border
+        }
+      ]} 
       onPress={() => onToggle(task.id)}
       activeOpacity={0.7}
     >
-      <View style={[styles.checkbox, task.completed && styles.checkboxChecked]}>
-        {task.completed && <View style={styles.checkmark} />}
+      <View 
+        style={[
+          styles.checkbox, 
+          { borderColor: colors.checkbox },
+          task.completed && [styles.checkboxChecked, { backgroundColor: colors.checkbox }]
+        ]}
+      >
+        {task.completed && <View style={[styles.checkmark, { borderColor: '#fff' }]} />}
       </View>
       <View style={styles.content}>
-        <Text style={[styles.taskText, task.completed && styles.completedText]}>
+        <Text 
+          style={[
+            styles.taskText, 
+            { color: colors.text },
+            task.completed && [styles.completedText, { color: colors.subText }]
+          ]}
+        >
           {task.name}
         </Text>
         {task.lastCompletedAt && (
-          <Text style={styles.dateText}>
+          <Text style={[styles.dateText, { color: colors.subText }]}>
             最終完了: {new Date(task.lastCompletedAt).toLocaleString()}
           </Text>
         )}
@@ -42,18 +64,39 @@ export const CustomTaskItem: React.FC<CustomTaskItemProps> = ({
   onToggle,
   onIncrement 
 }) => {
+  const { colors } = useTheme();
+  
   if (task.type === 'checkbox') {
     return (
       <TouchableOpacity 
-        style={styles.container} 
+        style={[
+          styles.container, 
+          { 
+            backgroundColor: colors.card,
+            shadowColor: colors.text,
+            borderColor: colors.border
+          }
+        ]} 
         onPress={() => onToggle(task.id)}
         activeOpacity={0.7}
       >
-        <View style={[styles.checkbox, task.completed && styles.checkboxChecked]}>
-          {task.completed && <View style={styles.checkmark} />}
+        <View 
+          style={[
+            styles.checkbox, 
+            { borderColor: colors.checkbox },
+            task.completed && [styles.checkboxChecked, { backgroundColor: colors.checkbox }]
+          ]}
+        >
+          {task.completed && <View style={[styles.checkmark, { borderColor: '#fff' }]} />}
         </View>
         <View style={styles.content}>
-          <Text style={[styles.taskText, task.completed && styles.completedText]}>
+          <Text 
+            style={[
+              styles.taskText, 
+              { color: colors.text },
+              task.completed && [styles.completedText, { color: colors.subText }]
+            ]}
+          >
             {task.name}
           </Text>
         </View>
@@ -61,16 +104,25 @@ export const CustomTaskItem: React.FC<CustomTaskItemProps> = ({
     );
   } else { // counter type
     return (
-      <View style={styles.container}>
+      <View 
+        style={[
+          styles.container, 
+          { 
+            backgroundColor: colors.card,
+            shadowColor: colors.text,
+            borderColor: colors.border
+          }
+        ]}
+      >
         <View style={styles.content}>
-          <Text style={styles.taskText}>{task.name}</Text>
+          <Text style={[styles.taskText, { color: colors.text }]}>{task.name}</Text>
           <View style={styles.counterContainer}>
-            <Text style={styles.counterText}>
+            <Text style={[styles.counterText, { color: colors.subText }]}>
               {task.value || 0}/{task.maxValue || 1}
             </Text>
             {!task.completed && onIncrement && (
               <TouchableOpacity 
-                style={styles.incrementButton}
+                style={[styles.incrementButton, { backgroundColor: colors.primary }]}
                 onPress={() => onIncrement(task.id)}
               >
                 <Text style={styles.incrementButtonText}>+</Text>
@@ -89,10 +141,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#fff',
     borderRadius: 8,
     marginVertical: 6,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -103,20 +153,16 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#6200EE',
     marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: '#6200EE',
-  },
+  checkboxChecked: {},
   checkmark: {
     width: 12,
     height: 6,
     borderLeftWidth: 2,
     borderBottomWidth: 2,
-    borderColor: '#fff',
     transform: [{ rotate: '-45deg' }],
   },
   content: {
@@ -124,15 +170,12 @@ const styles = StyleSheet.create({
   },
   taskText: {
     fontSize: 16,
-    color: '#333',
   },
   completedText: {
     textDecorationLine: 'line-through',
-    color: '#999',
   },
   dateText: {
     fontSize: 12,
-    color: '#999',
     marginTop: 4,
   },
   counterContainer: {
@@ -142,13 +185,11 @@ const styles = StyleSheet.create({
   },
   counterText: {
     fontSize: 14,
-    color: '#666',
   },
   incrementButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#6200EE',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,

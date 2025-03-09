@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator }
 import { useNavigation } from '@react-navigation/native';
 import GameCard from '../components/GameCard';
 import { useTaskContext } from '../contexts/TaskContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 // React Navigation 7対応のため型を変更
 type HomeScreenNavigationProp = any;
@@ -10,6 +11,7 @@ type HomeScreenNavigationProp = any;
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const { games, loading, error, fetchGames } = useTaskContext();
+  const { colors } = useTheme();
 
   // コンポーネントマウント時にデータを取得
   useEffect(() => {
@@ -33,9 +35,12 @@ const HomeScreen: React.FC = () => {
   // エラー時の表示
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchGames}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+        <TouchableOpacity 
+          style={[styles.retryButton, { backgroundColor: colors.primary }]} 
+          onPress={fetchGames}
+        >
           <Text style={styles.retryButtonText}>再試行</Text>
         </TouchableOpacity>
       </View>
@@ -45,26 +50,32 @@ const HomeScreen: React.FC = () => {
   // 読み込み中の表示
   if (loading && games.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6200EE" />
-        <Text style={styles.loadingText}>ゲームデータを読み込み中...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.subText }]}>ゲームデータを読み込み中...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>マイゲーム</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddGame}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>マイゲーム</Text>
+        <TouchableOpacity 
+          style={[styles.addButton, { backgroundColor: colors.primary }]} 
+          onPress={handleAddGame}
+        >
           <Text style={styles.addButtonText}>+ 追加</Text>
         </TouchableOpacity>
       </View>
 
       {games.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>ゲームがまだ登録されていません</Text>
-          <TouchableOpacity style={styles.startButton} onPress={handleAddGame}>
+          <Text style={[styles.emptyText, { color: colors.subText }]}>ゲームがまだ登録されていません</Text>
+          <TouchableOpacity 
+            style={[styles.startButton, { backgroundColor: colors.primary }]} 
+            onPress={handleAddGame}
+          >
             <Text style={styles.startButtonText}>最初のゲームを追加する</Text>
           </TouchableOpacity>
         </View>
@@ -86,7 +97,6 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   centerContainer: {
     flex: 1,
@@ -100,19 +110,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
   },
   addButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#6200EE',
     borderRadius: 20,
   },
   addButtonText: {
@@ -131,12 +137,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
     marginBottom: 16,
     textAlign: 'center',
   },
   startButton: {
-    backgroundColor: '#6200EE',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
@@ -148,12 +152,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#D32F2F',
     marginBottom: 16,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#6200EE',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -165,7 +167,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
   },
 });
 
