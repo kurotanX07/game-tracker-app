@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTaskContext } from '../contexts/TaskContext';
@@ -17,6 +18,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { useTheme } from '../contexts/ThemeContext';
 import { AdService } from '../services/AdService';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import NotificationService from '../services/NotificationService';
 
 // 現在のバージョンのReact Navigationに対応するため型を変更
 type GameDetailScreenRouteProp = any;
@@ -35,6 +38,11 @@ const GameDetailScreen: React.FC = () => {
   const [newTaskName, setNewTaskName] = useState('');
   const [taskType, setTaskType] = useState<'checkbox' | 'counter'>('checkbox');
   const [counterMaxValue, setCounterMaxValue] = useState('1');
+
+  // リセット時間編集用の状態
+  const [editResetTimes, setEditResetTimes] = useState<string[]>([]);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedTimeIndex, setSelectedTimeIndex] = useState<number>(-1);
 
   // ゲームが見つからない場合
   if (!game) {
@@ -128,6 +136,82 @@ const GameDetailScreen: React.FC = () => {
     return game.resetTimes.join(', ');
   };
 
+  // リセット時間編集モーダルを開く
+  const handleOpenResetTimesModal = () => {
+    setEditResetTimes([...game.resetTimes]);
+    setResetTimesModalVisible(true);
+  };
+
+  // 時間選択を表示
+  const handleShowTimePicker = (index: number) => {
+    setSelectedTimeIndex(index);
+    setShowTimePicker(true);
+  };
+
+  // 時間選択ハンドラ
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    setShowTimePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      const hours = selectedDate.getHours();
+      const minutes = selectedDate.getMinutes();
+      const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      
+      const updatedTimes = [...editResetTimes];
+      updatedTimes[selectedTimeIndex] = timeString;
+      setEditResetTimes(updatedTimes);
+    }
+  };
+
+  // リセット時間追加ハンドラ
+  const handleAddResetTime = () => {
+    setEditResetTimes([...editResetTimes, '12:00']);
+  };
+
+  // リセット時間削除ハンドラ
+  const handleRemoveResetTime = (index: number) => {
+    if (editResetTimes.length > 1) {
+      const updatedTimes = [...editResetTimes];
+      updatedTimes.splice(index, 1);
+      setEditResetTimes(updatedTimes);
+    } else {
+      Alert.alert('エラー', '少なくとも1つのリセット時間が必要です');
+    }
+  };
+
+  // 時間文字列をDate型に変換
+  const getTimeAsDate = (timeString: string): Date => {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  };
+
+  // リセット時間保存ハンドラ
+  const handleSaveResetTimes = async () => {
+    if (editResetTimes.length === 0) {
+      Alert.alert('エラー', '少なくとも1つのリセット時間を設定してください');
+      return;
+    }
+    
+    try {
+      // ゲームのリセット時間を更新
+      await updateGameResetTimes(gameId, editResetTimes);
+      
+      // 通知を更新（ゲーム共通リセット時間を使用しているタスク）
+      const updatedGame = { ...game, resetTimes: editResetTimes };
+      for (const task of game.dailyTasks) {
+        if (task.resetSettings.type === 'game') {
+          await NotificationService.scheduleTaskResetNotification(updatedGame, task);
+        }
+      }
+      
+      setResetTimesModalVisible(false);
+      Alert.alert('完了', 'リセット時間を更新しました');
+    } catch (error) {
+      Alert.alert('エラー', 'リセット時間の更新に失敗しました');
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollContainer}>
@@ -135,7 +219,7 @@ const GameDetailScreen: React.FC = () => {
           <Text style={[styles.gameName, { color: colors.text }]}>{game.name}</Text>
           <TouchableOpacity
             style={styles.resetTimeContainer}
-            onPress={() => setResetTimesModalVisible(true)}
+            onPress={handleOpenResetTimesModal}
           >
             <Text style={[styles.resetTime, { color: colors.subText }]}>
               リセット時間: {getResetTimesText()}
@@ -154,28 +238,33 @@ const GameDetailScreen: React.FC = () => {
               <Text style={styles.addButtonText}>追加</Text>
             </TouchableOpacity>
           </View>
+          
           <View style={styles.taskList}>
             {game.dailyTasks.map(task => (
               <View key={task.id} style={styles.taskContainer}>
-                <DailyTaskItem
-                  task={task}
-                  onToggle={handleTaskToggle}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.taskSettingsButton, 
-                    { 
-                      backgroundColor: colors.primary,
-                      borderWidth: 1,
-                      borderColor: colors.primary,
-                    }
-                  ]}
-                  onPress={() => handleTaskSettings(task.id)}
-                >
-                  <Ionicons name="options-outline" size={20} color="#FFF" />
-                </TouchableOpacity>
+                <View style={styles.taskItemContainer}>
+                  <View style={styles.taskItemWrapper}>
+                    <DailyTaskItem
+                      task={task}
+                      onToggle={handleTaskToggle}
+                    />
+                  </View>
+                  
+                  {/* 改善したタスク設定ボタン */}
+                  <TouchableOpacity
+                    style={[
+                      styles.taskSettingsButton, 
+                      { backgroundColor: colors.primary }
+                    ]}
+                    onPress={() => handleTaskSettings(task.id)}
+                  >
+                    <Ionicons name="options-outline" size={16} color="#FFF" />
+                    <Text style={styles.taskSettingsButtonText}>設定</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
+            
             {game.customTasks.map(task => (
               <CustomTaskItem
                 key={task.id}
@@ -183,6 +272,7 @@ const GameDetailScreen: React.FC = () => {
                 onToggle={() => {}}
               />
             ))}
+            
             {game.dailyTasks.length === 0 && game.customTasks.length === 0 && (
               <Text style={[styles.emptyText, { color: colors.subText }]}>タスクはまだありません</Text>
             )}
@@ -299,29 +389,88 @@ const GameDetailScreen: React.FC = () => {
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <Text style={[styles.modalTitle, { color: colors.text }]}>リセット時間設定</Text>
 
-            <Text style={[styles.modalLabel, { color: colors.text }]}>現在のリセット時間:</Text>
-            <View style={styles.resetTimesContainer}>
-              {game.resetTimes.map((time, index) => (
-                <View key={index} style={[
-                  styles.resetTimeItem, 
-                  { backgroundColor: colors.background, borderColor: colors.border }
-                ]}>
-                  <Text style={[styles.resetTimeItemText, { color: colors.text }]}>{time}</Text>
+            <Text style={[styles.modalLabel, { color: colors.text }]}>ゲーム共通のリセット時間:</Text>
+            
+            {/* リセット時間編集部分 */}
+            <View style={styles.timesContainer}>
+              {editResetTimes.map((time, index) => (
+                <View key={index} style={styles.timeInputContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.timePickerButton,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.border
+                      }
+                    ]}
+                    onPress={() => handleShowTimePicker(index)}
+                  >
+                    <Text style={[styles.timeText, { color: colors.text }]}>{time}</Text>
+                  </TouchableOpacity>
+                  
+                  {/* 削除ボタン（1つ以上あるときのみ表示） */}
+                  {editResetTimes.length > 1 && (
+                    <TouchableOpacity
+                      style={[
+                        styles.removeTimeButton,
+                        {
+                          backgroundColor: colors.background,
+                          borderColor: colors.border
+                        }
+                      ]}
+                      onPress={() => handleRemoveResetTime(index)}
+                    >
+                      <Text style={[styles.removeButtonText, { color: colors.error }]}>削除</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))}
+              
+              {/* 時間選択のDateTimePicker - 表示中のインデックスに対応 */}
+              {showTimePicker && (
+                <DateTimePicker
+                  value={getTimeAsDate(editResetTimes[selectedTimeIndex])}
+                  mode="time"
+                  is24Hour={true}
+                  display="default"
+                  onChange={handleTimeChange}
+                  style={styles.datePicker}
+                />
+              )}
+              
+              {/* 時間追加ボタン */}
+              <TouchableOpacity
+                style={[
+                  styles.addTimeButton,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.primary
+                  }
+                ]}
+                onPress={handleAddResetTime}
+              >
+                <Text style={[styles.addTimeButtonText, { color: colors.primary }]}>
+                  + リセット時間を追加
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <Text style={[styles.modalInfoText, { color: colors.subText }]}>
-              リセット時間の変更は「ゲーム追加/編集」画面から行うことができます。
-              ※現在の画面からは変更できません。
+              リセット時間を変更すると、ゲーム共通設定を使用しているすべてのタスクに影響します。
             </Text>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalFullButton, { backgroundColor: colors.primary }]}
+                style={[styles.modalCancelButton, { borderColor: colors.border }]}
                 onPress={() => setResetTimesModalVisible(false)}
               >
-                <Text style={styles.modalAddButtonText}>閉じる</Text>
+                <Text style={[styles.modalCancelButtonText, { color: colors.subText }]}>キャンセル</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalAddButton, { backgroundColor: colors.primary }]}
+                onPress={handleSaveResetTimes}
+              >
+                <Text style={styles.modalAddButtonText}>保存</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -397,21 +546,34 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   taskContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 8,
   },
-  taskSettingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  taskItemContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 12,
+    justifyContent: 'space-between',
+  },
+  taskItemWrapper: {
+    flex: 1,
+  },
+  // 改善したタスク設定ボタンのスタイル
+  taskSettingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginLeft: 8,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
-    elevation: 4,
+    elevation: 2,
+  },
+  taskSettingsButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginLeft: 4,
   },
   emptyText: {
     fontSize: 16,
@@ -445,7 +607,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '80%',
+    width: '85%',
     borderRadius: 12,
     padding: 20,
     shadowColor: '#000',
@@ -453,6 +615,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -544,6 +707,46 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  timesContainer: {
+    marginBottom: 16,
+  },
+  timeInputContainer: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  timePickerButton: {
+    flex: 1,
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    marginRight: 8,
+  },
+  timeText: {
+    fontSize: 16,
+  },
+  removeTimeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  removeButtonText: {
+    fontWeight: 'bold',
+  },
+  addTimeButton: {
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addTimeButtonText: {
+    fontWeight: 'bold',
+  },
+  datePicker: {
+    marginBottom: 8,
   },
 });
 

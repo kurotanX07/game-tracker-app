@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
+import NotificationService from '../services/NotificationService';
 
 const TaskSettingsScreen: React.FC = () => {
   const route = useRoute();
@@ -27,6 +28,33 @@ const TaskSettingsScreen: React.FC = () => {
   // ゲームとタスクの取得
   const game = games.find(g => g.id === gameId);
   const task = game?.dailyTasks.find(t => t.id === taskId);
+  
+  // 状態管理
+  const [useCustomSettings, setUseCustomSettings] = useState(
+    task?.resetSettings.type === 'custom' || false
+  );
+  const [resetTimes, setResetTimes] = useState(
+    (task?.resetSettings.type === 'custom' && task?.resetSettings.times.length > 0)
+      ? [...task.resetSettings.times]
+      : (game?.resetTimes || ['06:00'])
+  );
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedTimeIndex, setSelectedTimeIndex] = useState<number>(-1);
+  
+  // 通知設定の状態
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  
+  // 通知設定を読み込む
+  useEffect(() => {
+    if (task) {
+      const loadNotificationSetting = async () => {
+        const enabled = await NotificationService.getTaskNotificationSetting(task.id);
+        setNotificationsEnabled(enabled);
+      };
+      
+      loadNotificationSetting();
+    }
+  }, [task]);
   
   if (!game || !task) {
     return (
@@ -43,18 +71,6 @@ const TaskSettingsScreen: React.FC = () => {
       </View>
     );
   }
-  
-  // 状態管理
-  const [useCustomSettings, setUseCustomSettings] = useState(
-    task.resetSettings.type === 'custom'
-  );
-  const [resetTimes, setResetTimes] = useState(
-    task.resetSettings.type === 'custom' && task.resetSettings.times.length > 0
-      ? [...task.resetSettings.times]
-      : [...game.resetTimes]
-  );
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [selectedTimeIndex, setSelectedTimeIndex] = useState<number>(-1);
   
   // 時間選択を表示
   const handleShowTimePicker = (index: number) => {
@@ -78,7 +94,6 @@ const TaskSettingsScreen: React.FC = () => {
 
   // リセット時間追加ハンドラ
   const handleAddResetTime = () => {
-    // デフォルトで正午を追加
     setResetTimes([...resetTimes, '12:00']);
   };
 
@@ -101,6 +116,36 @@ const TaskSettingsScreen: React.FC = () => {
     return date;
   };
   
+  // 通知設定変更ハンドラ
+  const handleToggleNotification = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    
+    if (value) {
+      // 通知を有効にする場合は許可を確認
+      const { status } = await NotificationService.requestPermissions();
+      if (status !== 'granted') {
+        Alert.alert(
+          '通知許可が必要です',
+          '設定アプリから本アプリの通知を許可してください',
+          [{ text: '了解' }]
+        );
+        setNotificationsEnabled(false);
+        return;
+      }
+    }
+    
+    // 設定を保存
+    await NotificationService.saveTaskNotificationSetting(task.id, value);
+    
+    // 通知をスケジュールまたはキャンセル
+    if (value) {
+      await NotificationService.scheduleTaskResetNotification(game, task);
+      Alert.alert('通知を設定しました', 'リセット時間に通知が届きます');
+    } else {
+      await NotificationService.cancelTaskNotifications(task.id);
+    }
+  };
+  
   // 設定保存ハンドラ
   const handleSave = async () => {
     if (resetTimes.length === 0) {
@@ -115,6 +160,15 @@ const TaskSettingsScreen: React.FC = () => {
     
     try {
       await updateTaskSettings(gameId, taskId, settings);
+      
+      // 設定変更後に通知を更新
+      if (notificationsEnabled) {
+        await NotificationService.scheduleTaskResetNotification(
+          { ...game, dailyTasks: [{ ...task, resetSettings: { ...task.resetSettings, ...settings }}] },
+          { ...task, resetSettings: { ...task.resetSettings, ...settings }}
+        );
+      }
+      
       navigation.goBack();
     } catch (error) {
       Alert.alert('エラー', '設定の保存に失敗しました');
@@ -132,6 +186,9 @@ const TaskSettingsScreen: React.FC = () => {
           text: '削除',
           style: 'destructive',
           onPress: async () => {
+            // 通知をキャンセル
+            await NotificationService.cancelTaskNotifications(task.id);
+            // タスクを削除
             await removeTask(gameId, taskId, 'daily');
             navigation.goBack();
           },
@@ -151,7 +208,30 @@ const TaskSettingsScreen: React.FC = () => {
             タスク: {task.name}
           </Text>
           
+          {/* 通知設定 */}
           <View style={styles.settingRow}>
+            <Text style={[styles.settingLabel, { color: colors.text }]}>
+              リセット通知
+            </Text>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotification}
+              trackColor={{ false: '#DDDDDD', true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          
+          <View style={styles.infoBox}>
+            <Ionicons name="notifications-outline" size={20} color={colors.primary} style={styles.infoIcon} />
+            <Text style={[styles.infoText, { color: colors.subText }]}>
+              {notificationsEnabled
+                ? 'リセット時間になると通知が届きます'
+                : '通知はオフになっています'}
+            </Text>
+          </View>
+          
+          {/* カスタムリセット設定 */}
+          <View style={[styles.settingRow, { marginTop: 16 }]}>
             <Text style={[styles.settingLabel, { color: colors.text }]}>
               カスタムリセット設定を使用
             </Text>

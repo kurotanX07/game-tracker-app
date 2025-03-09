@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Game } from '../@types';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -123,7 +123,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false }) => {
         
         {/* 右側のコンテンツ: リセット時間と進捗バー */}
         <View style={styles.rightContent}>
-          {/* リセット時間 */}
+          {/* リセット時間 - 修正後の横スクロール対応 */}
           <View style={styles.resetTimeContainer}>
             <Text 
               style={[
@@ -134,23 +134,37 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false }) => {
             >
               リセット:
             </Text>
-            <View style={styles.resetTimeValuesScrollContainer}>
-              <View style={styles.resetTimeValuesContainer}>
-                {game.resetTimes.map((time, index) => (
+            
+            {/* ScrollViewを修正 - 横スクロール対応を強化 */}
+            <ScrollView 
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.resetTimeScrollContent}
+              style={styles.resetTimeScrollView}
+              scrollEnabled={true}
+              nestedScrollEnabled={true}
+            >
+              {game.resetTimes.map((time, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.resetTimeItem,
+                    { backgroundColor: 'rgba(0,0,0,0.05)' },
+                    index < game.resetTimes.length - 1 && styles.resetTimeItemWithMargin
+                  ]}
+                >
                   <Text
-                    key={index}
                     style={[
                       styles.resetTimeValue,
                       { color: colors.subText },
-                      compact && styles.compactResetTimeValue,
-                      index < game.resetTimes.length - 1 && styles.resetTimeValueWithMargin
+                      compact && styles.compactResetTimeValue
                     ]}
                   >
                     {time}
                   </Text>
-                ))}
-              </View>
-            </View>
+                </View>
+              ))}
+            </ScrollView>
           </View>
           
           {/* 進捗バー */}
@@ -231,42 +245,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginBottom: 5,
-    flexWrap: 'nowrap', // 折り返しを禁止
-    maxWidth: '100%',   // 親コンテナの幅を超えないように
   },
-  resetTimeValuesScrollContainer: {
-    maxWidth: 100, // スクロール領域の最大幅
-    overflow: 'hidden',
+  resetTimeScrollView: {
+    maxWidth: 110,
+    flexGrow: 0,
+    flexShrink: 1,
   },
-  resetTimeValuesContainer: {
+  resetTimeScrollContent: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    flexShrink: 0, // 縮小しないように
+    alignItems: 'center',
   },
   resetTimeLabel: {
     fontSize: 12,
     marginRight: 3,
-    flexShrink: 0, // 縮小しないように
+    flexShrink: 0,
+  },
+  resetTimeItem: {
+    borderRadius: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
   resetTimeValue: {
     fontSize: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 3,
-    flexShrink: 1,  // 必要に応じて縮小
-    minWidth: 30,  // 最小幅を設定
+  },
+  resetTimeItemWithMargin: {
+    marginRight: 3,
   },
   compactResetTimeLabel: {
     fontSize: 10,
   },
   compactResetTimeValue: {
     fontSize: 10,
-    paddingHorizontal: 3,
-    paddingVertical: 0,
-  },
-  resetTimeValueWithMargin: {
-    marginRight: 3,
   },
   progressContainer: {
     flexDirection: 'row',

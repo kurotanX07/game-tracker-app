@@ -3,20 +3,45 @@ import React, { useEffect } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
-import { TaskProvider } from './src/contexts/TaskContext';
+import { TaskProvider, useTaskContext } from './src/contexts/TaskContext';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { StatusBar } from 'expo-status-bar';
 import { AdService } from './src/services/AdService';
+import NotificationService from './src/services/NotificationService';
 import { View, StyleSheet } from 'react-native';
+import * as Notifications from 'expo-notifications';
+
+// 通知設定の初期化
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 // Theme-aware NavigationContainer wrapper
 const ThemedApp = () => {
   const { theme, colors } = useTheme();
+  const { games } = useTaskContext();
   
-  // Initialize AdService when app starts
+  // Initialize AdService and Notifications when app starts
   useEffect(() => {
+    // 広告の初期化
     AdService.initializeAds();
-  }, []);
+    
+    // 通知のタスクスケジュール
+    const initNotifications = async () => {
+      // パーミッションチェック（リクエストはしない、設定画面でリクエスト）
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status === 'granted') {
+        // すべてのタスク通知を更新
+        await NotificationService.updateAllTaskNotifications(games);
+      }
+    };
+    
+    initNotifications();
+  }, [games]);
   
   // カスタムナビゲーションテーマを作成
   const customTheme = {
