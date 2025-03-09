@@ -145,28 +145,8 @@ const GameDetailScreen: React.FC = () => {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>デイリータスク</Text>
-          <View style={styles.taskList}>
-            {game.dailyTasks.map(task => (
-              <View key={task.id} style={styles.taskContainer}>
-                <DailyTaskItem
-                  task={task}
-                  onToggle={handleTaskToggle}
-                />
-                <TouchableOpacity
-                  style={[styles.taskSettingsButton, { backgroundColor: colors.primary + '20' }]}
-                  onPress={() => handleTaskSettings(task.id)}
-                >
-                  <Ionicons name="options-outline" size={18} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>カスタムタスク</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>タスク</Text>
             <TouchableOpacity
               style={[styles.addButton, { backgroundColor: colors.primary }]}
               onPress={() => setModalVisible(true)}
@@ -175,16 +155,36 @@ const GameDetailScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
           <View style={styles.taskList}>
-            {game.customTasks.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.subText }]}>カスタムタスクはまだありません</Text>
-            ) : (
-              game.customTasks.map(task => (
-                <CustomTaskItem
-                  key={task.id}
+            {game.dailyTasks.map(task => (
+              <View key={task.id} style={styles.taskContainer}>
+                <DailyTaskItem
                   task={task}
-                  onToggle={() => {}}
+                  onToggle={handleTaskToggle}
                 />
-              ))
+                <TouchableOpacity
+                  style={[
+                    styles.taskSettingsButton, 
+                    { 
+                      backgroundColor: colors.primary,
+                      borderWidth: 1,
+                      borderColor: colors.primary,
+                    }
+                  ]}
+                  onPress={() => handleTaskSettings(task.id)}
+                >
+                  <Ionicons name="options-outline" size={20} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {game.customTasks.map(task => (
+              <CustomTaskItem
+                key={task.id}
+                task={task}
+                onToggle={() => {}}
+              />
+            ))}
+            {game.dailyTasks.length === 0 && game.customTasks.length === 0 && (
+              <Text style={[styles.emptyText, { color: colors.subText }]}>タスクはまだありません</Text>
             )}
           </View>
         </View>
@@ -206,7 +206,7 @@ const GameDetailScreen: React.FC = () => {
       >
         <View style={styles.modalContainer}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>カスタムタスクを追加</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>タスクを追加</Text>
 
             <Text style={[styles.modalLabel, { color: colors.text }]}>タスク名</Text>
             <TextInput
@@ -402,12 +402,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   taskSettingsButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
   },
   emptyText: {
     fontSize: 16,

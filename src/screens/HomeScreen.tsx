@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Dimensions, LayoutChangeEvent } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import GameCard from '../components/GameCard';
 import { useTaskContext } from '../contexts/TaskContext';
@@ -8,10 +8,43 @@ import { useTheme } from '../contexts/ThemeContext';
 // React Navigation 7対応のため型を変更
 type HomeScreenNavigationProp = any;
 
+// 画面の高さを取得
+const { height: screenHeight } = Dimensions.get('window');
+
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const { games, loading, error, fetchGames } = useTaskContext();
   const { colors } = useTheme();
+  
+  // コンパクトモード状態
+  const [useCompactMode, setUseCompactMode] = useState(false);
+  // 利用可能な高さ
+  const [availableHeight, setAvailableHeight] = useState(screenHeight);
+  
+  // ヘッダーの高さを測定し、利用可能な高さを計算
+  const onHeaderLayout = (event: LayoutChangeEvent) => {
+    const { height } = event.nativeEvent.layout;
+    // 利用可能な高さを計算 (画面高さ - ヘッダー高さ - 余白)
+    setAvailableHeight(screenHeight - height - 100); // 100はボトムタブやマージン用の余裕
+  };
+  
+  // ゲーム数に応じてコンパクトモードを判断
+  useEffect(() => {
+    // 標準カードの推定高さ (マージンも含む)
+    const standardCardHeight = 180;
+    // コンパクトカードの推定高さ
+    const compactCardHeight = 100;
+    
+    // 標準サイズで表示した場合の合計高さを計算
+    const totalHeightStandard = games.length * standardCardHeight;
+    
+    // 合計高さが利用可能な高さを超える場合
+    if (totalHeightStandard > availableHeight && games.length > 3) {
+      setUseCompactMode(true);
+    } else {
+      setUseCompactMode(false);
+    }
+  }, [games.length, availableHeight]);
 
   // コンポーネントマウント時にデータを取得
   useEffect(() => {
@@ -59,7 +92,10 @@ const HomeScreen: React.FC = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View 
+        style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+        onLayout={onHeaderLayout}
+      >
         <Text style={[styles.title, { color: colors.text }]}>マイゲーム</Text>
         <TouchableOpacity 
           style={[styles.addButton, { backgroundColor: colors.primary }]} 
@@ -83,7 +119,7 @@ const HomeScreen: React.FC = () => {
         <FlatList
           data={games}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <GameCard game={item} />}
+          renderItem={({ item }) => <GameCard game={item} compact={useCompactMode} />}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshing={loading}

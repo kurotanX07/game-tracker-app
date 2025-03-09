@@ -21,7 +21,7 @@ const TaskSettingsScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { gameId, taskId } = route.params as { gameId: string; taskId: string };
-  const { games, updateTaskSettings } = useTaskContext();
+  const { games, updateTaskSettings, removeTask } = useTaskContext();
   const { colors } = useTheme();
   
   // ゲームとタスクの取得
@@ -49,7 +49,7 @@ const TaskSettingsScreen: React.FC = () => {
     task.resetSettings.type === 'custom'
   );
   const [resetTimes, setResetTimes] = useState(
-    task.resetSettings.type === 'custom'
+    task.resetSettings.type === 'custom' && task.resetSettings.times.length > 0
       ? [...task.resetSettings.times]
       : [...game.resetTimes]
   );
@@ -63,7 +63,7 @@ const TaskSettingsScreen: React.FC = () => {
   };
 
   // 時間選択ハンドラ
-  const handleTimeChange = (event: any, selectedDate?: Date, index: number = 0) => {
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
     setShowTimePicker(Platform.OS === 'ios');
     if (selectedDate) {
       const hours = selectedDate.getHours();
@@ -71,7 +71,7 @@ const TaskSettingsScreen: React.FC = () => {
       const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       
       const updatedTimes = [...resetTimes];
-      updatedTimes[index] = timeString;
+      updatedTimes[selectedTimeIndex] = timeString;
       setResetTimes(updatedTimes);
     }
   };
@@ -119,6 +119,25 @@ const TaskSettingsScreen: React.FC = () => {
     } catch (error) {
       Alert.alert('エラー', '設定の保存に失敗しました');
     }
+  };
+
+  // タスク削除ハンドラ
+  const handleDeleteTask = () => {
+    Alert.alert(
+      'タスクの削除',
+      `"${task.name}"を削除してもよろしいですか？`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除',
+          style: 'destructive',
+          onPress: async () => {
+            await removeTask(gameId, taskId, 'daily');
+            navigation.goBack();
+          },
+        },
+      ]
+    );
   };
   
   return (
@@ -189,20 +208,20 @@ const TaskSettingsScreen: React.FC = () => {
                       <Text style={[styles.removeButtonText, { color: colors.error }]}>削除</Text>
                     </TouchableOpacity>
                   )}
-                  
-                  {selectedTimeIndex === index && showTimePicker && (
-                    <DateTimePicker
-                      value={getTimeAsDate(time)}
-                      mode="time"
-                      is24Hour={true}
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        if (selectedDate) handleTimeChange(event, selectedDate, index);
-                      }}
-                    />
-                  )}
                 </View>
               ))}
+              
+              {/* 時間選択のDateTimePicker - 表示中のインデックスに対応 */}
+              {showTimePicker && (
+                <DateTimePicker
+                  value={getTimeAsDate(resetTimes[selectedTimeIndex])}
+                  mode="time"
+                  is24Hour={true}
+                  display="default"
+                  onChange={handleTimeChange}
+                  style={styles.datePicker}
+                />
+              )}
               
               {/* 時間追加ボタン */}
               <TouchableOpacity
@@ -247,6 +266,13 @@ const TaskSettingsScreen: React.FC = () => {
             </Text>
           </View>
         )}
+        
+        <TouchableOpacity 
+          style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
+          onPress={handleDeleteTask}
+        >
+          <Text style={[styles.deleteButtonText, { color: colors.error }]}>タスクを削除</Text>
+        </TouchableOpacity>
       </ScrollView>
       
       <View style={[
@@ -434,6 +460,20 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  datePicker: {
+    marginBottom: 8,
+  },
+  deleteButton: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
