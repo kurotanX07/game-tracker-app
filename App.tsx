@@ -1,6 +1,6 @@
 import 'react-native-get-random-values'; // UUID対応のため必要
 import React, { useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import { TaskProvider } from './src/contexts/TaskContext';
@@ -18,9 +18,11 @@ const ThemedApp = () => {
     AdService.initializeAds();
   }, []);
   
-  // Define navigation theme
-  const navigationTheme = {
-    dark: theme === 'dark',
+  // カスタムナビゲーションテーマを作成
+  const customTheme = {
+    // デフォルトのダークテーマまたはライトテーマをベースにする
+    ...(theme === 'dark' ? DarkTheme : DefaultTheme),
+    // 以下のプロパティをオーバーライド
     colors: {
       primary: colors.primary,
       background: colors.background,
@@ -34,7 +36,7 @@ const ThemedApp = () => {
   return (
     <View style={styles.container}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={customTheme}>
         <AppNavigator />
       </NavigationContainer>
       {/* 広告モジュールの問題が解決するまで一時的にコメントアウト */}

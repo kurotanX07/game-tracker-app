@@ -16,6 +16,7 @@ import { CustomTask } from '../@types';
 import { v4 as uuidv4 } from 'uuid';
 import { useTheme } from '../contexts/ThemeContext';
 import { AdService } from '../services/AdService';
+import { Ionicons } from '@expo/vector-icons';
 
 // 現在のバージョンのReact Navigationに対応するため型を変更
 type GameDetailScreenRouteProp = any;
@@ -24,12 +25,13 @@ const GameDetailScreen: React.FC = () => {
   const route = useRoute<GameDetailScreenRouteProp>();
   const navigation = useNavigation();
   const { gameId } = route.params as { gameId: string };
-  const { games, updateDailyTask, addCustomTask, removeGame } = useTaskContext();
+  const { games, updateDailyTask, addCustomTask, removeGame, updateGameResetTimes } = useTaskContext();
   const { colors } = useTheme();
 
   const game = games.find(g => g.id === gameId);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [resetTimesModalVisible, setResetTimesModalVisible] = useState(false);
   const [newTaskName, setNewTaskName] = useState('');
   const [taskType, setTaskType] = useState<'checkbox' | 'counter'>('checkbox');
   const [counterMaxValue, setCounterMaxValue] = useState('1');
@@ -116,23 +118,48 @@ const GameDetailScreen: React.FC = () => {
     );
   };
 
+  // タスク設定画面に遷移
+  const handleTaskSettings = (taskId: string) => {
+    navigation.navigate('TaskSettings', { gameId, taskId });
+  };
+
+  // リセット時間を文字列として表示
+  const getResetTimesText = () => {
+    return game.resetTimes.join(', ');
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView style={styles.scrollContainer}>
         <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <Text style={[styles.gameName, { color: colors.text }]}>{game.name}</Text>
-          <Text style={[styles.resetTime, { color: colors.subText }]}>リセット時間: {game.resetTime}</Text>
+          <TouchableOpacity
+            style={styles.resetTimeContainer}
+            onPress={() => setResetTimesModalVisible(true)}
+          >
+            <Text style={[styles.resetTime, { color: colors.subText }]}>
+              リセット時間: {getResetTimesText()}
+            </Text>
+            <Ionicons name="settings-outline" size={16} color={colors.subText} style={styles.settingsIcon} />
+          </TouchableOpacity>
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>デイリータスク</Text>
           <View style={styles.taskList}>
             {game.dailyTasks.map(task => (
-              <DailyTaskItem
-                key={task.id}
-                task={task}
-                onToggle={handleTaskToggle}
-              />
+              <View key={task.id} style={styles.taskContainer}>
+                <DailyTaskItem
+                  task={task}
+                  onToggle={handleTaskToggle}
+                />
+                <TouchableOpacity
+                  style={[styles.taskSettingsButton, { backgroundColor: colors.primary + '20' }]}
+                  onPress={() => handleTaskSettings(task.id)}
+                >
+                  <Ionicons name="options-outline" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
         </View>
@@ -260,6 +287,46 @@ const GameDetailScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* リセット時間編集モーダル */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={resetTimesModalVisible}
+        onRequestClose={() => setResetTimesModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>リセット時間設定</Text>
+
+            <Text style={[styles.modalLabel, { color: colors.text }]}>現在のリセット時間:</Text>
+            <View style={styles.resetTimesContainer}>
+              {game.resetTimes.map((time, index) => (
+                <View key={index} style={[
+                  styles.resetTimeItem, 
+                  { backgroundColor: colors.background, borderColor: colors.border }
+                ]}>
+                  <Text style={[styles.resetTimeItemText, { color: colors.text }]}>{time}</Text>
+                </View>
+              ))}
+            </View>
+
+            <Text style={[styles.modalInfoText, { color: colors.subText }]}>
+              リセット時間の変更は「ゲーム追加/編集」画面から行うことができます。
+              ※現在の画面からは変更できません。
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalFullButton, { backgroundColor: colors.primary }]}
+                onPress={() => setResetTimesModalVisible(false)}
+              >
+                <Text style={styles.modalAddButtonText}>閉じる</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -300,8 +367,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 4,
   },
+  resetTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   resetTime: {
     fontSize: 14,
+    marginRight: 4,
+  },
+  settingsIcon: {
+    marginTop: 1,
   },
   section: {
     padding: 16,
@@ -320,6 +395,19 @@ const styles = StyleSheet.create({
   },
   taskList: {
     marginTop: 8,
+  },
+  taskContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  taskSettingsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   emptyText: {
     fontSize: 16,
@@ -425,6 +513,33 @@ const styles = StyleSheet.create({
   modalAddButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  modalFullButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  resetTimesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+  },
+  resetTimeItem: {
+    padding: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    margin: 4,
+  },
+  resetTimeItemText: {
+    fontSize: 14,
+  },
+  modalInfoText: {
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
 

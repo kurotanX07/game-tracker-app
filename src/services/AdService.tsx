@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Platform, StyleSheet, View, Text } from 'react-native';
-// AdMob関連のインポートをコメントアウト
-// import { AdMobBanner, AdMobInterstitial, AdMobRewarded, setTestDeviceIDAsync } from 'expo-ads-admob';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -32,65 +30,38 @@ export class AdService {
 
   // テストモード設定
   static async initializeAds() {
-    try {
-      await setTestDeviceIDAsync('EMULATOR');
-    } catch (error) {
-      console.error('Failed to set test device ID:', error);
-    }
+    console.log('広告の初期化は一時的に無効化されています');
   }
 
-// AdService.tsxのshowInterstitialメソッドを修正
-static async showInterstitial() {
-  console.log('インタースティシャル広告は一時的に無効化されています');
-  return false;
-  
-  // 元のコードはコメントアウト
-  /* try {
-      // 省略...
-    } catch (error) {
-      console.error('Failed to show interstitial ad:', error);
-      return false;
-    } */
-}
+  // インタースティシャル広告を表示
+  static async showInterstitial() {
+    console.log('インタースティシャル広告は一時的に無効化されています');
+    return false;
+  }
 
   // リワード広告を表示
   static async showRewarded(): Promise<boolean> {
-    try {
-      await AdMobRewarded.setAdUnitID(this.rewardedAdUnitId!);
-      await AdMobRewarded.requestAdAsync();
-      await AdMobRewarded.showAdAsync();
-      return true;
-    } catch (error) {
-      console.error('Failed to show rewarded ad:', error);
-      return false;
-    }
+    console.log('リワード広告は一時的に無効化されています');
+    return false;
   }
 
-// incrementAdCounterメソッドも同様に修正
-static async incrementAdCounter() {
-  console.log('広告カウンターは一時的に無効化されています');
-  return false;
-  
-  // 元のコードはコメントアウト
-  /* try {
-      // 省略...
-    } catch (error) {
-      console.error('Failed to increment ad counter:', error);
-      return false;
-    } */
-}
+  // インタラクション回数の増加
+  static async incrementAdCounter() {
+    console.log('広告カウンターは一時的に無効化されています');
+    return false;
+  }
 
-// AdService.tsxのBannerAdコンポーネントを修正
-static BannerAd = () => {
-  const { colors } = useTheme();
-  
-  // ダミーのバナー広告コンポーネントを返す
-  return (
-    <View style={[styles.adContainer, { backgroundColor: colors.card }]}>
-      <Text style={{ color: colors.subText, fontSize: 12 }}>広告スペース (開発中)</Text>
-    </View>
-  );
-};
+  // バナー広告コンポーネント - テーマに対応
+  static BannerAd = () => {
+    const { colors } = useTheme();
+    
+    // ダミーのバナー広告コンポーネントを返す
+    return (
+      <View style={[styles.adContainer, { backgroundColor: colors.card }]}>
+        <Text style={{ color: colors.subText, fontSize: 12 }}>広告スペース (開発中)</Text>
+      </View>
+    );
+  };
 }
 
 const styles = StyleSheet.create({

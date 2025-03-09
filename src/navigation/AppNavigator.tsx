@@ -2,18 +2,21 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
 
 // スクリーンのインポート
 import HomeScreen from '../screens/HomeScreen';
 import GameAddScreen from '../screens/GameAddScreen';
 import GameDetailScreen from '../screens/GameDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import TaskSettingsScreen from '../screens/TaskSettingsScreen';
 
 // ナビゲーション型定義
 export type RootStackParamList = {
   MainTab: undefined;
   GameAdd: undefined;
   GameDetail: { gameId: string };
+  TaskSettings: { gameId: string; taskId: string };
 };
 
 export type MainTabParamList = {
@@ -27,6 +30,8 @@ const Tab = createBottomTabNavigator();
 
 // メインタブナビゲーション
 const MainTabNavigator: React.FC = () => {
+  const { colors } = useTheme();
+  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -43,17 +48,29 @@ const MainTabNavigator: React.FC = () => {
 
           return <Ionicons name={iconName as any} size={size} color={color} />;
         },
+        // ヘッダータイトルのスタイルを明示的に定義
+        headerStyle: {
+          backgroundColor: colors.card,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontWeight: '600',  // 'bold'ではなく数値または文字列の値を使用
+        },
       })}
     >
       <Tab.Screen 
         name="Home" 
         component={HomeScreen} 
-        options={{ title: 'ホーム' }}
+        options={{ 
+          title: 'ホーム',
+        }}
       />
       <Tab.Screen 
         name="Settings" 
         component={SettingsScreen} 
-        options={{ title: '設定' }}
+        options={{ 
+          title: '設定',
+        }}
       />
     </Tab.Navigator>
   );
@@ -61,8 +78,20 @@ const MainTabNavigator: React.FC = () => {
 
 // メインアプリケーションナビゲーター
 const AppNavigator: React.FC = () => {
+  const { colors } = useTheme();
+  
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.card,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontWeight: '600',  // 'bold'ではなく数値または文字列の値を使用
+        },
+      }}
+    >
       <Stack.Screen 
         name="MainTab" 
         component={MainTabNavigator} 
@@ -77,6 +106,11 @@ const AppNavigator: React.FC = () => {
         name="GameDetail" 
         component={GameDetailScreen} 
         options={{ title: 'ゲーム詳細' }}
+      />
+      <Stack.Screen 
+        name="TaskSettings" 
+        component={TaskSettingsScreen} 
+        options={{ title: 'タスク設定' }}
       />
     </Stack.Navigator>
   );

@@ -14,6 +14,21 @@ interface TaskContextType {
   addCustomTask: (gameId: string, task: CustomTask) => Promise<void>;
   removeGame: (gameId: string) => Promise<void>;
   removeTask: (gameId: string, taskId: string, taskType: 'daily' | 'custom') => Promise<void>;
+  
+  // 新しいメソッド
+  updateTaskSettings: (
+    gameId: string, 
+    taskId: string, 
+    settings: {
+      type: 'game' | 'custom';
+      times: string[];
+    }
+  ) => Promise<void>;
+  
+  updateGameResetTimes: (
+    gameId: string,
+    resetTimes: string[]
+  ) => Promise<void>;
 }
 
 // コンテキストの作成
@@ -56,6 +71,26 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   // 新しいゲームの追加
   const addGame = async (newGame: Game) => {
     try {
+      // resetTimesがない場合は、resetTimeから初期化
+      if (!newGame.resetTimes || newGame.resetTimes.length === 0) {
+        newGame.resetTimes = [newGame.resetTime];
+      }
+
+      // タスクにresetSettingsがない場合は追加
+      newGame.dailyTasks = newGame.dailyTasks.map(task => {
+        if (!task.resetSettings) {
+          return {
+            ...task,
+            resetSettings: {
+              type: 'game',
+              times: [],
+              lastResetAt: null
+            }
+          };
+        }
+        return task;
+      });
+
       await LocalStorageService.addGame(newGame);
       setGames(prevGames => [...prevGames, newGame]);
     } catch (err) {
@@ -148,6 +183,69 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     }
   };
 
+  // タスクのリセット設定を更新
+  const updateTaskSettings = async (
+    gameId: string,
+    taskId: string,
+    settings: {
+      type: 'game' | 'custom';
+      times: string[];
+    }
+  ) => {
+    try {
+      const updatedGames = games.map(game => {
+        if (game.id === gameId) {
+          const updatedTasks = game.dailyTasks.map(task => {
+            if (task.id === taskId) {
+              return {
+                ...task,
+                resetSettings: {
+                  ...task.resetSettings,
+                  type: settings.type,
+                  times: settings.type === 'custom' ? settings.times : [],
+                }
+              };
+            }
+            return task;
+          });
+          return { ...game, dailyTasks: updatedTasks };
+        }
+        return game;
+      });
+      
+      setGames(updatedGames);
+      await LocalStorageService.saveGames(updatedGames);
+    } catch (err) {
+      setError('タスク設定の更新に失敗しました');
+      console.error('タスク設定の更新エラー:', err);
+    }
+  };
+
+  // ゲームのリセット時間を更新
+  const updateGameResetTimes = async (
+    gameId: string,
+    resetTimes: string[]
+  ) => {
+    try {
+      const updatedGames = games.map(game => {
+        if (game.id === gameId) {
+          return {
+            ...game,
+            resetTimes,
+            resetTime: resetTimes[0] || '06:00', // 互換性のために単一のresetTimeも更新
+          };
+        }
+        return game;
+      });
+      
+      setGames(updatedGames);
+      await LocalStorageService.saveGames(updatedGames);
+    } catch (err) {
+      setError('ゲームリセット時間の更新に失敗しました');
+      console.error('ゲームリセット時間の更新エラー:', err);
+    }
+  };
+
   // コンテキスト値の作成
   const value = {
     games,
@@ -158,7 +256,9 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     updateDailyTask,
     addCustomTask,
     removeGame,
-    removeTask
+    removeTask,
+    updateTaskSettings,
+    updateGameResetTimes
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
