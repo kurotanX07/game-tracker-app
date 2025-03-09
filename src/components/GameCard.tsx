@@ -134,20 +134,22 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false }) => {
             >
               リセット:
             </Text>
-            <View style={styles.resetTimeValuesContainer}>
-              {game.resetTimes.map((time, index) => (
-                <Text
-                  key={index}
-                  style={[
-                    styles.resetTimeValue,
-                    { color: colors.subText },
-                    compact && styles.compactResetTimeValue,
-                    index < game.resetTimes.length - 1 && styles.resetTimeValueWithMargin
-                  ]}
-                >
-                  {time}
-                </Text>
-              ))}
+            <View style={styles.resetTimeValuesScrollContainer}>
+              <View style={styles.resetTimeValuesContainer}>
+                {game.resetTimes.map((time, index) => (
+                  <Text
+                    key={index}
+                    style={[
+                      styles.resetTimeValue,
+                      { color: colors.subText },
+                      compact && styles.compactResetTimeValue,
+                      index < game.resetTimes.length - 1 && styles.resetTimeValueWithMargin
+                    ]}
+                  >
+                    {time}
+                  </Text>
+                ))}
+              </View>
             </View>
           </View>
           
@@ -213,7 +215,7 @@ const styles = StyleSheet.create({
   },
   rightContent: {
     alignItems: 'flex-end',
-    width: 120, // 固定幅を設定して右側をしっかり確保
+    width: 140, // 幅を広げて横並びを確保
   },
   title: {
     fontSize: 18,
@@ -229,16 +231,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginBottom: 5,
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap', // 折り返しを禁止
+    maxWidth: '100%',   // 親コンテナの幅を超えないように
+  },
+  resetTimeValuesScrollContainer: {
+    maxWidth: 100, // スクロール領域の最大幅
+    overflow: 'hidden',
   },
   resetTimeValuesContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'flex-end',
+    flexShrink: 0, // 縮小しないように
   },
   resetTimeLabel: {
     fontSize: 12,
     marginRight: 3,
+    flexShrink: 0, // 縮小しないように
   },
   resetTimeValue: {
     fontSize: 12,
@@ -246,6 +254,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: 3,
+    flexShrink: 1,  // 必要に応じて縮小
+    minWidth: 30,  // 最小幅を設定
   },
   compactResetTimeLabel: {
     fontSize: 10,
