@@ -5,6 +5,9 @@ export interface Game {
   resetTimes: string[];     // 複数のリセット時間（例: ["06:00", "18:00"]）
   dailyTasks: DailyTask[];
   customTasks: CustomTask[];
+  favorite?: boolean;       // お気に入り設定フラグ（追加）
+  order?: number;           // カスタム並び順（ドラッグ＆ドロップ用）（追加）
+  lastCompletedAt?: Date | null; // ゲーム全体の最終完了時間（追加）
 }
 
 export interface DailyTask {

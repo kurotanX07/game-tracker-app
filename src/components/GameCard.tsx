@@ -4,6 +4,7 @@ import { Game } from '../@types';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTheme } from '../contexts/ThemeContext';
+import { Ionicons } from '@expo/vector-icons'; // Ioniconsをインポート
 
 // 型定義の修正（React Navigation 7での変更対応）
 type GameCardNavigationProp = any; // 互換性のために一時的に any 型に
@@ -11,9 +12,10 @@ type GameCardNavigationProp = any; // 互換性のために一時的に any 型�
 interface GameCardProps {
   game: Game;
   compact?: boolean; // コンパクトモード用のプロパティを追加
+  onFavoriteToggle?: (gameId: string) => void; // お気に入りボタン用のコールバック（追加）
 }
 
-const GameCard: React.FC<GameCardProps> = ({ game, compact = false }) => {
+const GameCard: React.FC<GameCardProps> = ({ game, compact = false, onFavoriteToggle }) => {
   const navigation = useNavigation<GameCardNavigationProp>();
   const { colors } = useTheme();
 
@@ -121,8 +123,22 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false }) => {
           </View>
         </View>
         
-        {/* 右側のコンテンツ: リセット時間と進捗バー */}
+        {/* 右側のコンテンツ: お気に入りボタン、リセット時間と進捗バー */}
         <View style={styles.rightContent}>
+          {/* お気に入りボタン - 追加 */}
+          {onFavoriteToggle && (
+            <TouchableOpacity 
+              style={styles.favoriteButton} 
+              onPress={() => onFavoriteToggle(game.id)}
+            >
+              <Ionicons 
+                name={game.favorite ? "star" : "star-outline"} 
+                size={compact ? 16 : 20} 
+                color={game.favorite ? "#FFC107" : colors.subText} 
+              />
+            </TouchableOpacity>
+          )}
+          
           {/* リセット時間 - 修正後の横スクロール対応 */}
           <View style={styles.resetTimeContainer}>
             <Text 
@@ -361,6 +377,13 @@ const styles = StyleSheet.create({
   },
   compactTaskItemWithMargin: {
     marginRight: 8,
+  },
+  // お気に入りボタン用のスタイルを追加
+  favoriteButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    padding: 5,
   },
 });
 

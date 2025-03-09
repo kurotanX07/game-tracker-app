@@ -3,6 +3,7 @@ import { Game, DailyTask, CustomTask } from '../@types';
 
 class LocalStorageService {
   static GAMES_STORAGE_KEY = 'user_games';
+  static DISPLAY_SETTINGS_KEY = 'display_settings'; // 表示設定用のキーを追加
 
   // JSON文字列化前にDateオブジェクトを処理
   private static replacer(key: string, value: any) {
@@ -137,6 +138,45 @@ class LocalStorageService {
       
       return { ...game, dailyTasks: updatedTasks };
     });
+  }
+  
+  // 表示設定の保存
+  static async saveDisplaySettings(settings: {
+    sortCompletedToBottom: boolean;
+    sortByResetTime: boolean;
+    allowDragDrop: boolean;
+  }): Promise<void> {
+    try {
+      const jsonValue = JSON.stringify(settings);
+      await AsyncStorage.setItem(this.DISPLAY_SETTINGS_KEY, jsonValue);
+    } catch (error) {
+      console.error('表示設定の保存エラー:', error);
+    }
+  }
+
+  // 表示設定の取得
+  static async getDisplaySettings(): Promise<{
+    sortCompletedToBottom: boolean;
+    sortByResetTime: boolean;
+    allowDragDrop: boolean;
+  }> {
+    try {
+      const jsonValue = await AsyncStorage.getItem(this.DISPLAY_SETTINGS_KEY);
+      return jsonValue != null 
+        ? JSON.parse(jsonValue) 
+        : {
+            sortCompletedToBottom: true,
+            sortByResetTime: true,
+            allowDragDrop: false
+          };
+    } catch (error) {
+      console.error('表示設定の取得エラー:', error);
+      return {
+        sortCompletedToBottom: true,
+        sortByResetTime: true,
+        allowDragDrop: false
+      };
+    }
   }
 }
 

@@ -467,10 +467,10 @@ const GameDetailScreen: React.FC = () => {
                 <Text style={[styles.modalCancelButtonText, { color: colors.subText }]}>キャンセル</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalAddButton, { backgroundColor: colors.primary }]}
+                style={[styles.modalSaveButton, { backgroundColor: colors.primary }]}
                 onPress={handleSaveResetTimes}
               >
-                <Text style={styles.modalAddButtonText}>保存</Text>
+                <Text style={styles.modalSaveButtonText}>保存</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -677,7 +677,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
+  modalSaveButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginLeft: 8,
+  },
   modalAddButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+  },
+  modalSaveButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
   },

@@ -116,7 +116,7 @@ const TaskSettingsScreen: React.FC = () => {
     return date;
   };
   
-  // 通知設定変更ハンドラ
+  // 通知設定変更ハンドラ（修正版）
   const handleToggleNotification = async (value: boolean) => {
     setNotificationsEnabled(value);
     
@@ -132,16 +132,13 @@ const TaskSettingsScreen: React.FC = () => {
         setNotificationsEnabled(false);
         return;
       }
-    }
-    
-    // 設定を保存
-    await NotificationService.saveTaskNotificationSetting(task.id, value);
-    
-    // 通知をスケジュールまたはキャンセル
-    if (value) {
-      await NotificationService.scheduleTaskResetNotification(game, task);
-      Alert.alert('通知を設定しました', 'リセット時間に通知が届きます');
+      
+      // 設定を保存（ただし、通知はスケジュールしない）
+      await NotificationService.saveTaskNotificationSetting(task.id, value);
+      Alert.alert('通知設定を保存しました', 'リセット時間の前後に通知が届きます');
     } else {
+      // 通知を無効にする場合
+      await NotificationService.saveTaskNotificationSetting(task.id, value);
       await NotificationService.cancelTaskNotifications(task.id);
     }
   };
@@ -225,7 +222,7 @@ const TaskSettingsScreen: React.FC = () => {
             <Ionicons name="notifications-outline" size={20} color={colors.primary} style={styles.infoIcon} />
             <Text style={[styles.infoText, { color: colors.subText }]}>
               {notificationsEnabled
-                ? 'リセット時間になると通知が届きます'
+                ? 'リセット時間の5分前と、リセット時間に通知が届きます'
                 : '通知はオフになっています'}
             </Text>
           </View>

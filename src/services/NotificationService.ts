@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 class NotificationService {
   // ストレージキー
   static NOTIFICATION_SETTINGS_KEY = 'task_notification_settings';
+  static NOTIFICATION_LAST_SCHEDULED_KEY = 'task_notification_last_scheduled';
   
   // 通知許可の要求
   static async requestPermissions() {
@@ -48,6 +49,52 @@ class NotificationService {
       return false;
     }
   }
+  
+  // 最後に通知がスケジュールされた時間を保存
+  static async saveLastScheduledTime(taskId: string): Promise<void> {
+    try {
+      const lastScheduledJson = await AsyncStorage.getItem(this.NOTIFICATION_LAST_SCHEDULED_KEY);
+      const lastScheduled = lastScheduledJson ? JSON.parse(lastScheduledJson) : {};
+      
+      lastScheduled[taskId] = new Date().toISOString();
+      
+      await AsyncStorage.setItem(this.NOTIFICATION_LAST_SCHEDULED_KEY, JSON.stringify(lastScheduled));
+    } catch (error) {
+      console.error('最終スケジュール時間の保存に失敗:', error);
+    }
+  }
+  
+  // 最後に通知がスケジュールされた時間を取得
+  static async getLastScheduledTime(taskId: string): Promise<Date | null> {
+    try {
+      const lastScheduledJson = await AsyncStorage.getItem(this.NOTIFICATION_LAST_SCHEDULED_KEY);
+      const lastScheduled = lastScheduledJson ? JSON.parse(lastScheduledJson) : {};
+      
+      if (lastScheduled[taskId]) {
+        return new Date(lastScheduled[taskId]);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('最終スケジュール時間の取得に失敗:', error);
+      return null;
+    }
+  }
+  
+  // スケジュール可能かをチェック（前回から1分以上経過していること）
+  static async canScheduleNotification(taskId: string): Promise<boolean> {
+    const lastScheduled = await this.getLastScheduledTime(taskId);
+    
+    if (!lastScheduled) {
+      return true;
+    }
+    
+    const now = new Date();
+    const diffMinutes = (now.getTime() - lastScheduled.getTime()) / (1000 * 60);
+    
+    // 前回のスケジュールから1分以上経過している場合のみ許可
+    return diffMinutes >= 1;
+  }
 
   // タスクのリセット通知をスケジュール
   static async scheduleTaskResetNotification(game: Game, task: DailyTask) {
@@ -56,6 +103,12 @@ class NotificationService {
     if (!isEnabled) {
       // 通知が無効な場合は既存の通知をキャンセルして終了
       await this.cancelTaskNotifications(task.id);
+      return;
+    }
+    
+    // スケジュール可能かチェック（直接トグルしたときなど連続してスケジュールしないため）
+    const canSchedule = await this.canScheduleNotification(task.id);
+    if (!canSchedule) {
       return;
     }
     
@@ -78,21 +131,42 @@ class NotificationService {
     for (const timeStr of resetTimes) {
       const [hours, minutes] = timeStr.split(':').map(Number);
       
-      // 通知をスケジュール
+      // リセット時間5分前の事前通知
+      let beforeMinutes = minutes >= 5 ? minutes - 5 : minutes + 55;
+      let beforeHours = minutes >= 5 ? hours : (hours === 0 ? 23 : hours - 1);
+      
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: `${game.name} リセットタイム`,
-          body: `「${task.name}」が間もなくリセットされます`,
-          data: { gameId: game.id, taskId: task.id },
+          title: `${game.name} リセットまもなく`,
+          body: `「${task.name}」が5分後にリセットされます`,
+          data: { gameId: game.id, taskId: task.id, type: 'before_reset' },
+        },
+        trigger: {
+          hour: beforeHours,
+          minute: beforeMinutes,
+          repeats: true,
+        },
+        identifier: `task_${task.id}_before_${timeStr.replace(':', '')}`
+      });
+      
+      // リセット時間後の通知
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `${game.name} タスクリセット完了`,
+          body: `「${task.name}」がリセットされました`,
+          data: { gameId: game.id, taskId: task.id, type: 'after_reset' },
         },
         trigger: {
           hour: hours,
           minute: minutes,
           repeats: true,
         },
-        identifier: `task_${task.id}_${timeStr.replace(':', '')}`
+        identifier: `task_${task.id}_after_${timeStr.replace(':', '')}`
       });
     }
+    
+    // 最後にスケジュールした時間を記録
+    await this.saveLastScheduledTime(task.id);
   }
 
   // タスクの通知をキャンセル

@@ -10,6 +10,7 @@ import GameAddScreen from '../screens/GameAddScreen';
 import GameDetailScreen from '../screens/GameDetailScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TaskSettingsScreen from '../screens/TaskSettingsScreen';
+import DisplaySettingsScreen from '../screens/DisplaySettingsScreen'; // 新しい表示設定画面
 
 // ナビゲーション型定義
 export type RootStackParamList = {
@@ -17,6 +18,7 @@ export type RootStackParamList = {
   GameAdd: undefined;
   GameDetail: { gameId: string };
   TaskSettings: { gameId: string; taskId: string };
+  DisplaySettings: undefined; // 表示設定画面の型定義を追加
 };
 
 export type MainTabParamList = {
@@ -111,6 +113,12 @@ const AppNavigator: React.FC = () => {
         name="TaskSettings" 
         component={TaskSettingsScreen} 
         options={{ title: 'タスク設定' }}
+      />
+      {/* 新しい表示設定画面を追加 */}
+      <Stack.Screen 
+        name="DisplaySettings" 
+        component={DisplaySettingsScreen} 
+        options={{ title: '表示設定' }}
       />
     </Stack.Navigator>
   );

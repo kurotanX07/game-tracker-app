@@ -15,7 +15,7 @@ interface TaskContextType {
   removeGame: (gameId: string) => Promise<void>;
   removeTask: (gameId: string, taskId: string, taskType: 'daily' | 'custom') => Promise<void>;
   
-  // 新しいメソッド
+  // 既存のメソッド
   updateTaskSettings: (
     gameId: string, 
     taskId: string, 
@@ -29,6 +29,24 @@ interface TaskContextType {
     gameId: string,
     resetTimes: string[]
   ) => Promise<void>;
+
+  // 新しい表示順・お気に入り関連のメソッド
+  toggleGameFavorite: (gameId: string) => Promise<void>;
+  updateGameOrder: (gameId: string, newOrder: number) => Promise<void>;
+  reorderGames: (reorderedGames: Game[]) => Promise<void>;
+  displaySettings: {
+    sortCompletedToBottom: boolean;
+    sortByResetTime: boolean;
+    allowDragDrop: boolean;
+  };
+  updateDisplaySettings: (settings: Partial<{
+    sortCompletedToBottom: boolean;
+    sortByResetTime: boolean;
+    allowDragDrop: boolean;
+  }>) => Promise<void>;
+  
+  // ゲーム情報更新メソッド
+  updateGameInfo: (gameId: string, updates: Partial<Game>) => Promise<void>;
 }
 
 // コンテキストの作成
@@ -44,10 +62,33 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // 表示設定のステートを追加
+  const [displaySettings, setDisplaySettings] = useState<{
+    sortCompletedToBottom: boolean;
+    sortByResetTime: boolean;
+    allowDragDrop: boolean;
+  }>({
+    sortCompletedToBottom: true,
+    sortByResetTime: true,
+    allowDragDrop: false
+  });
 
   // 初期データの読み込み
   useEffect(() => {
     fetchGames();
+    
+    // 表示設定の読み込み
+    const loadDisplaySettings = async () => {
+      try {
+        const settings = await LocalStorageService.getDisplaySettings();
+        setDisplaySettings(settings);
+      } catch (err) {
+        console.error('表示設定の読み込みエラー:', err);
+      }
+    };
+    
+    loadDisplaySettings();
   }, []);
 
   // ゲームデータの取得
@@ -109,7 +150,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
               ? { ...task, completed: !task.completed, lastCompletedAt: new Date() }
               : task
           );
-          return { ...game, dailyTasks: updatedTasks };
+          
+          // すべてのタスクが完了したかチェック
+          const allTasksCompleted = updatedTasks.every(task => task.completed);
+          
+          return { 
+            ...game, 
+            dailyTasks: updatedTasks,
+            // すべてのタスクが完了した場合、ゲーム全体の完了時間を更新
+            lastCompletedAt: allTasksCompleted ? new Date() : game.lastCompletedAt
+          };
         }
         return game;
       });
@@ -245,6 +295,93 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       console.error('ゲームリセット時間の更新エラー:', err);
     }
   };
+  
+  // ゲームのお気に入り設定を切り替え
+  const toggleGameFavorite = async (gameId: string) => {
+    try {
+      const updatedGames = games.map(game => {
+        if (game.id === gameId) {
+          return { ...game, favorite: !game.favorite };
+        }
+        return game;
+      });
+      
+      setGames(updatedGames);
+      await LocalStorageService.saveGames(updatedGames);
+    } catch (err) {
+      setError('お気に入り設定の更新に失敗しました');
+      console.error('お気に入り設定の更新エラー:', err);
+    }
+  };
+
+  // ゲームの並び順を更新（ドラッグ＆ドロップで使用）
+  const updateGameOrder = async (gameId: string, newOrder: number) => {
+    try {
+      const updatedGames = games.map(game => {
+        if (game.id === gameId) {
+          return { ...game, order: newOrder };
+        }
+        return game;
+      });
+      
+      setGames(updatedGames);
+      await LocalStorageService.saveGames(updatedGames);
+    } catch (err) {
+      setError('ゲームの並び順の更新に失敗しました');
+      console.error('ゲームの並び順の更新エラー:', err);
+    }
+  };
+
+  // ゲームのリスト全体を並べ替え（ドラッグ＆ドロップ後）
+  const reorderGames = async (reorderedGames: Game[]) => {
+    try {
+      // 新しい順序を各ゲームに設定
+      const updatedGames = reorderedGames.map((game, index) => ({
+        ...game,
+        order: index
+      }));
+      
+      setGames(updatedGames);
+      await LocalStorageService.saveGames(updatedGames);
+    } catch (err) {
+      setError('ゲームの並べ替えに失敗しました');
+      console.error('ゲームの並べ替えエラー:', err);
+    }
+  };
+
+  // 表示設定を更新
+  const updateDisplaySettings = async (settings: Partial<{
+    sortCompletedToBottom: boolean;
+    sortByResetTime: boolean;
+    allowDragDrop: boolean;
+  }>) => {
+    try {
+      const newSettings = { ...displaySettings, ...settings };
+      setDisplaySettings(newSettings);
+      await LocalStorageService.saveDisplaySettings(newSettings);
+    } catch (err) {
+      setError('表示設定の更新に失敗しました');
+      console.error('表示設定の更新エラー:', err);
+    }
+  };
+  
+  // ゲーム情報を更新する一般的なメソッド
+  const updateGameInfo = async (gameId: string, updates: Partial<Game>) => {
+    try {
+      const updatedGames = games.map(game => {
+        if (game.id === gameId) {
+          return { ...game, ...updates };
+        }
+        return game;
+      });
+      
+      setGames(updatedGames);
+      await LocalStorageService.saveGames(updatedGames);
+    } catch (err) {
+      setError('ゲーム情報の更新に失敗しました');
+      console.error('ゲーム情報の更新エラー:', err);
+    }
+  };
 
   // コンテキスト値の作成
   const value = {
@@ -258,7 +395,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     removeGame,
     removeTask,
     updateTaskSettings,
-    updateGameResetTimes
+    updateGameResetTimes,
+    toggleGameFavorite,
+    updateGameOrder,
+    reorderGames,
+    displaySettings,
+    updateDisplaySettings,
+    updateGameInfo
   };
 
   return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
