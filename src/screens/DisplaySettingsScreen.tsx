@@ -43,13 +43,13 @@ const DisplaySettingsScreen: React.FC = () => {
     updateDisplaySettings({ sortByResetTime: value });
   };
   
-  // ドラッグ＆ドロップの切り替え
+  // 手動並べ替えの切り替え
   const handleToggleDragDrop = (value: boolean) => {
     if (value) {
-      // ドラッグ＆ドロップを有効にする前に確認
+      // 手動並べ替えを有効にする前に確認
       Alert.alert(
         'カスタム並び替えモード',
-        'カスタム並び替えを有効にすると、優先表示設定（タスク完了ゲームを下に表示、リセット時間順）は無効になります。よろしいですか？',
+        '手動並び替えを有効にすると、優先表示設定（タスク完了ゲームを下に表示、リセット時間順）は無効になります。よろしいですか？',
         [
           {
             text: 'キャンセル',
@@ -61,7 +61,7 @@ const DisplaySettingsScreen: React.FC = () => {
               setAllowDragDrop(true);
               updateDisplaySettings({ 
                 allowDragDrop: true,
-                // ドラッグ＆ドロップが有効の場合、他の自動並べ替え設定は無効化される
+                // 手動並べ替えが有効の場合、他の自動並べ替え設定は無効化される
                 sortCompletedToBottom: false,
                 sortByResetTime: false
               });
@@ -72,7 +72,7 @@ const DisplaySettingsScreen: React.FC = () => {
         ]
       );
     } else {
-      // ドラッグ＆ドロップを無効にする場合は確認なしで切り替え
+      // 手動並べ替えを無効にする場合は確認なしで切り替え
       setAllowDragDrop(false);
       updateDisplaySettings({ allowDragDrop: false });
     }
@@ -91,7 +91,7 @@ const DisplaySettingsScreen: React.FC = () => {
             優先表示設定
           </Text>
           
-          {/* 自動並べ替え設定 - ドラッグ＆ドロップが無効の場合のみ有効 */}
+          {/* 自動並べ替え設定 - 手動並べ替えが無効の場合のみ有効 */}
           <View style={[styles.settingItem, { borderBottomColor: colors.border }]}>
             <View style={styles.settingLabel}>
               <Ionicons name="arrow-down-outline" size={24} color={colors.text} />
@@ -125,7 +125,7 @@ const DisplaySettingsScreen: React.FC = () => {
           </View>
         </View>
         
-        {/* カスタム並び替え設定 */}
+        {/* カスタム並べ替え設定 */}
         <View style={styles.settingsGroup}>
           <Text style={[styles.groupLabel, { color: colors.primary }]}>
             カスタム並び替え設定
@@ -135,7 +135,7 @@ const DisplaySettingsScreen: React.FC = () => {
             <View style={styles.settingLabel}>
               <Ionicons name="reorder-four-outline" size={24} color={colors.text} />
               <Text style={[styles.settingText, { color: colors.text }]}>
-                ドラッグ＆ドロップで並べ替え
+                手動で順序を並べ替え
               </Text>
             </View>
             <Switch
@@ -150,7 +150,7 @@ const DisplaySettingsScreen: React.FC = () => {
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={20} color={colors.primary} style={styles.infoIcon} />
               <Text style={[styles.infoText, { color: colors.subText }]}>
-                ホーム画面でゲームカードを長押しするとドラッグできます。
+                ゲームカードに上下矢印が表示され、タップしてゲームの順序を変更できます。
                 この設定が有効な場合、優先表示設定は無効になります。
               </Text>
             </View>

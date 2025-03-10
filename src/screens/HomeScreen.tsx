@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -15,17 +15,22 @@ import GameCard from '../components/GameCard';
 import { useTaskContext } from '../contexts/TaskContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-import DraggableFlatList, { 
-  RenderItemParams, 
-  ScaleDecorator 
-} from 'react-native-draggable-flatlist';
 import { Game } from '../@types';
 
 // React Navigation 7対応のため型を変更
 type HomeScreenNavigationProp = any;
 
-// 画面の高さを取得
-const { height: screenHeight } = Dimensions.get('window');
+// 画面の高さと幅を取得
+const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+
+// デバウンス関数 - 連続呼び出しを制限
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function(...args: any[]) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
@@ -41,38 +46,122 @@ const HomeScreen: React.FC = () => {
   } = useTaskContext();
   const { colors } = useTheme();
   
-  // コンパクトモード状態
+  // コンパクトモード状態とその変更履歴
   const [useCompactMode, setUseCompactMode] = useState(false);
-  // 利用可能な高さ
-  const [availableHeight, setAvailableHeight] = useState(screenHeight);
+  const [modeChangeCount, setModeChangeCount] = useState(0); // モード変更回数を追跡
+  const lastModeChangeTime = useRef(0); // 最後にモードを変更した時間
+  
+  // コンテンツサイズと表示領域のサイズを追跡
+  const [listContentHeight, setListContentHeight] = useState(0);
+  const [listViewHeight, setListViewHeight] = useState(0);
+  
+  // ヘッダー高さとフッター高さを追跡
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [footerSpace, setFooterSpace] = useState(80); // ボトムタブバーなどの下部スペース
+  
+  // 安定化のためのヒステリシス閾値
+  const COMPACT_THRESHOLD_RATIO = 0.95; // 画面の95%以上埋まったらコンパクトモードに
+  const NORMAL_THRESHOLD_RATIO = 0.85;  // 画面の85%以下になったら通常モードに戻す
+  
+  // モード切替のクールダウン時間（ミリ秒）
+  const MODE_CHANGE_COOLDOWN = 1000; // 1秒間は再切替を禁止
+  
+  // ゲーム数による簡易判定のための閾値
+  const MIN_GAMES_FOR_COMPACT = 6; // この数以上のゲームがあれば常にコンパクトモード
+  
+  // FlatListの参照
+  const listRef = useRef<FlatList>(null);
   
   // ソート済みのゲームリスト
   const [sortedGames, setSortedGames] = useState<Game[]>([]);
   
-  // ヘッダーの高さを測定し、利用可能な高さを計算
+  // 並び替えモード（新規追加）
+  const [sortingMode, setSortingMode] = useState(false);
+  
+  // ヘッダーの高さを測定
   const onHeaderLayout = (event: LayoutChangeEvent) => {
     const { height } = event.nativeEvent.layout;
-    // 利用可能な高さを計算 (画面高さ - ヘッダー高さ - 余白)
-    setAvailableHeight(screenHeight - height - 100); // 100はボトムタブやマージン用の余裕
+    setHeaderHeight(height);
   };
   
-  // ゲーム数に応じてコンパクトモードを判断
-  useEffect(() => {
-    // 標準カードの推定高さ (マージンも含む)
-    const standardCardHeight = 180;
-    // コンパクトカードの推定高さ
-    const compactCardHeight = 100;
+  // 安定化したコンパクトモード切替関数
+  const updateCompactMode = useCallback(debounce((availableHeight: number, contentHeight: number, gameCount: number) => {
+    const now = Date.now();
+    const timeSinceLastChange = now - lastModeChangeTime.current;
     
-    // 標準サイズで表示した場合の合計高さを計算
-    const totalHeightStandard = games.length * standardCardHeight;
-    
-    // 合計高さが利用可能な高さを超える場合
-    if (totalHeightStandard > availableHeight && games.length > 3) {
-      setUseCompactMode(true);
-    } else {
-      setUseCompactMode(false);
+    // クールダウン期間中は切替をスキップ
+    if (timeSinceLastChange < MODE_CHANGE_COOLDOWN && modeChangeCount > 0) {
+      console.log(`モード切替をスキップ: クールダウン中 (${timeSinceLastChange}ms / ${MODE_CHANGE_COOLDOWN}ms)`);
+      return;
     }
-  }, [games.length, availableHeight]);
+    
+    // ゲーム数が多い場合は常にコンパクトモード
+    if (gameCount >= MIN_GAMES_FOR_COMPACT) {
+      if (!useCompactMode) {
+        console.log(`コンパクトモードに切替: ゲーム数(${gameCount})が閾値(${MIN_GAMES_FOR_COMPACT})以上`);
+        setUseCompactMode(true);
+        setModeChangeCount(prev => prev + 1);
+        lastModeChangeTime.current = now;
+      }
+      return;
+    }
+    
+    // 現在の表示率を計算
+    const contentRatio = contentHeight / availableHeight;
+    
+    // ヒステリシスを使った切替判定
+    if (!useCompactMode && contentRatio > COMPACT_THRESHOLD_RATIO) {
+      // 通常モード → コンパクトモード
+      console.log(`コンパクトモードに切替: 表示率 ${(contentRatio * 100).toFixed(1)}% > ${(COMPACT_THRESHOLD_RATIO * 100).toFixed(1)}%`);
+      setUseCompactMode(true);
+      setModeChangeCount(prev => prev + 1);
+      lastModeChangeTime.current = now;
+    } else if (useCompactMode && contentRatio < NORMAL_THRESHOLD_RATIO) {
+      // コンパクトモード → 通常モード
+      console.log(`通常モードに切替: 表示率 ${(contentRatio * 100).toFixed(1)}% < ${(NORMAL_THRESHOLD_RATIO * 100).toFixed(1)}%`);
+      setUseCompactMode(false);
+      setModeChangeCount(prev => prev + 1);
+      lastModeChangeTime.current = now;
+    }
+  }, 300), [useCompactMode, modeChangeCount]); // デバウンス時間300ms
+  
+  // サイズ変更時のコンパクトモード判定
+  useEffect(() => {
+    if (listContentHeight > 0 && listViewHeight > 0 && headerHeight > 0) {
+      // リストの表示可能な最大高さを計算
+      const availableHeight = screenHeight - headerHeight - footerSpace;
+      
+      // コンパクトモードを更新
+      updateCompactMode(availableHeight, listContentHeight, games.length);
+    }
+  }, [listContentHeight, listViewHeight, headerHeight, games.length]);
+  
+  // 画面回転やサイズ変更の検出
+  useEffect(() => {
+    // Dimensionsの変更を監視
+    const onChange = () => {
+      // サイズ変更時に再計算をトリガー
+      const { height, width } = Dimensions.get('window');
+      console.log(`画面サイズ変更: ${width}x${height}`);
+      
+      // 少し遅延させてコンテンツサイズが調整された後に判定
+      setTimeout(() => {
+        if (listRef.current) {
+          // 強制的に再レンダリングして正確なサイズを取得
+          listRef.current.forceUpdate();
+        }
+      }, 100);
+    };
+    
+    // リスナーを追加
+    Dimensions.addEventListener('change', onChange);
+    
+    // クリーンアップ
+    return () => {
+      // React Native新バージョンではこの方法でリスナーを削除
+      // Dimensions.removeEventListener('change', onChange);
+    };
+  }, []);
 
   // ゲームの並び替え
   useEffect(() => {
@@ -219,6 +308,20 @@ const HomeScreen: React.FC = () => {
 
     return unsubscribe;
   }, [navigation]);
+  
+  // ソーティングモードの切り替え（新規追加）
+  const toggleSortingMode = () => {
+    setSortingMode(!sortingMode);
+    
+    // ソーティングモードを終了する時、カスタム並び替えを有効にする
+    if (sortingMode && !displaySettings.allowDragDrop) {
+      updateDisplaySettings({ 
+        allowDragDrop: true,
+        sortCompletedToBottom: false,
+        sortByResetTime: false
+      });
+    }
+  };
 
   // ゲーム追加画面に遷移
   const handleAddGame = () => {
@@ -230,39 +333,80 @@ const HomeScreen: React.FC = () => {
     navigation.navigate('DisplaySettings');
   };
   
-  // ドラッグ＆ドロップによる並べ替え後の処理
-  const handleDragEnd = ({ data }: { data: Game[] }) => {
-    // 並び替え後のデータを保存
-    reorderGames(data);
+  // ゲームを上下に移動する関数（新規追加）
+  const handleMoveGame = (index: number, direction: 'up' | 'down') => {
+    if (
+      (direction === 'up' && index === 0) || 
+      (direction === 'down' && index === sortedGames.length - 1)
+    ) {
+      return; // 境界チェック
+    }
+    
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    const newGames = [...sortedGames];
+    
+    // 要素を入れ替え
+    [newGames[index], newGames[newIndex]] = [newGames[newIndex], newGames[index]];
+    
+    // 並び順を更新
+    const reorderedGames = newGames.map((game, idx) => ({
+      ...game,
+      order: idx
+    }));
+    
+    // 保存
+    reorderGames(reorderedGames);
   };
   
-  // ドラッグ可能なリストのレンダリング
-  const renderDraggableItem = ({ item, drag, isActive }: RenderItemParams<Game>) => {
+  // リストのコンテンツサイズが変わったときに呼ばれる
+  const handleContentSizeChange = (width: number, height: number) => {
+    setListContentHeight(height);
+  };
+  
+  // リストのレイアウトが変わったときに呼ばれる
+  const handleListLayout = (event: LayoutChangeEvent) => {
+    setListViewHeight(event.nativeEvent.layout.height);
+  };
+  
+  // 通常リストのアイテムレンダリング（修正済み）
+  const renderItem = ({ item, index }: { item: Game; index: number }) => {
     return (
-      <ScaleDecorator>
-        <TouchableOpacity 
-          onLongPress={drag}
-          disabled={isActive}
-          style={{ opacity: isActive ? 0.7 : 1 }}
-        >
+      <View style={styles.gameItemContainer}>
+        {/* ソートボタン - ソーティングモード時のみ表示 */}
+        {sortingMode && (
+          <View style={styles.sortButtons}>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
+                { borderColor: colors.border },
+                index === 0 && { opacity: 0.3 }
+              ]}
+              onPress={() => handleMoveGame(index, 'up')}
+              disabled={index === 0}
+            >
+              <Ionicons name="chevron-up" size={20} color={colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.sortButton,
+                { borderColor: colors.border },
+                index === sortedGames.length - 1 && { opacity: 0.3 }
+              ]}
+              onPress={() => handleMoveGame(index, 'down')}
+              disabled={index === sortedGames.length - 1}
+            >
+              <Ionicons name="chevron-down" size={20} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+        )}
+        <View style={styles.gameCardWrapper}>
           <GameCard 
             game={item} 
             compact={useCompactMode} 
             onFavoriteToggle={toggleGameFavorite}
           />
-        </TouchableOpacity>
-      </ScaleDecorator>
-    );
-  };
-  
-  // 通常リストのアイテムレンダリング
-  const renderItem = ({ item }: { item: Game }) => {
-    return (
-      <GameCard 
-        game={item} 
-        compact={useCompactMode} 
-        onFavoriteToggle={toggleGameFavorite}
-      />
+        </View>
+      </View>
     );
   };
 
@@ -301,13 +445,30 @@ const HomeScreen: React.FC = () => {
           <Text style={[styles.title, { color: colors.text }]}>マイゲーム</Text>
           
           <View style={styles.headerButtons}>
+            {/* 並び替えボタン（新規追加） */}
             <TouchableOpacity 
-              style={[styles.settingsButton]} 
+              style={[
+                styles.iconButton,
+                sortingMode && { backgroundColor: colors.primary + '33' }  // 薄い背景色を追加
+              ]} 
+              onPress={toggleSortingMode}
+            >
+              <Ionicons 
+                name={sortingMode ? "save-outline" : "list-outline"} 
+                size={22} 
+                color={sortingMode ? colors.primary : colors.text} 
+              />
+            </TouchableOpacity>
+            
+            {/* 設定ボタン */}
+            <TouchableOpacity 
+              style={styles.iconButton} 
               onPress={handleDisplaySettings}
             >
               <Ionicons name="options-outline" size={22} color={colors.text} />
             </TouchableOpacity>
             
+            {/* 追加ボタン */}
             <TouchableOpacity 
               style={[styles.addButton, { backgroundColor: colors.primary }]} 
               onPress={handleAddGame}
@@ -320,17 +481,25 @@ const HomeScreen: React.FC = () => {
         {/* 表示モードのインジケーター */}
         {games.length > 0 && (
           <View style={styles.sortModeContainer}>
-            {displaySettings.allowDragDrop ? (
-              <Text style={[styles.sortModeText, { color: colors.subText }]}>
-                <Ionicons name="reorder-four-outline" size={14} /> 
-                カスタム順 (長押しで並べ替え)
+            {sortingMode ? (
+              <Text style={[styles.sortModeText, { color: colors.primary }]}>
+                <Ionicons name="information-circle-outline" size={14} /> 
+                並び替えモード（上下の矢印で順序を変更）
               </Text>
             ) : (
-              <Text style={[styles.sortModeText, { color: colors.subText }]}>
-                <Ionicons name="arrow-up-outline" size={14} />
-                {displaySettings.sortByResetTime ? ' リセット時間順' : ' 標準'}
-                {displaySettings.sortCompletedToBottom ? ' / 完了タスクを下部に表示' : ''}
-              </Text>
+              displaySettings.allowDragDrop ? (
+                <Text style={[styles.sortModeText, { color: colors.subText }]}>
+                  <Ionicons name="reorder-four-outline" size={14} /> 
+                  カスタム順表示モード {useCompactMode ? '(コンパクト表示)' : ''}
+                </Text>
+              ) : (
+                <Text style={[styles.sortModeText, { color: colors.subText }]}>
+                  <Ionicons name="arrow-up-outline" size={14} />
+                  {displaySettings.sortByResetTime ? ' リセット時間順' : ' 標準'}
+                  {displaySettings.sortCompletedToBottom ? ' / 完了タスクを下部に表示' : ''}
+                  {useCompactMode ? ' (コンパクト表示)' : ''}
+                </Text>
+              )
             )}
           </View>
         )}
@@ -346,19 +515,9 @@ const HomeScreen: React.FC = () => {
             <Text style={styles.startButtonText}>最初のゲームを追加する</Text>
           </TouchableOpacity>
         </View>
-      ) : displaySettings.allowDragDrop ? (
-        <DraggableFlatList
-          data={sortedGames}
-          keyExtractor={(item) => item.id}
-          renderItem={renderDraggableItem}
-          onDragEnd={handleDragEnd}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-          refreshing={loading}
-          onRefresh={fetchGames}
-        />
       ) : (
         <FlatList
+          ref={listRef}
           data={sortedGames}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
@@ -366,6 +525,8 @@ const HomeScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           refreshing={loading}
           onRefresh={fetchGames}
+          onContentSizeChange={handleContentSizeChange}
+          onLayout={handleListLayout}
         />
       )}
     </View>
@@ -400,9 +561,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  settingsButton: {
-    padding: 6,
+  iconButton: {
+    padding: 8,
     marginRight: 8,
+    borderRadius: 20,
   },
   addButton: {
     paddingHorizontal: 12,
@@ -462,6 +624,29 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+  },
+  // 並び替え関連の新しいスタイル
+  gameItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gameCardWrapper: {
+    flex: 1,
+  },
+  sortButtons: {
+    flexDirection: 'column',
+    justifyContent: 'space-around',
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  sortButton: {
+    borderWidth: 1,
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 4,
   },
 });
 

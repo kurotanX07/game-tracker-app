@@ -29,6 +29,14 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false, onFavoriteTo
     navigation.navigate('GameDetail', { gameId: game.id });
   };
 
+  // お気に入りトグルのハンドラー
+  const handleFavoriteToggle = (e: any) => {
+    e.stopPropagation(); // 親要素へのイベント伝播を停止
+    if (onFavoriteToggle) {
+      onFavoriteToggle(game.id);
+    }
+  };
+
   return (
     <TouchableOpacity 
       style={[
@@ -45,17 +53,36 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false, onFavoriteTo
       <View style={styles.contentContainer}>
         {/* 左側のコンテンツ: ゲーム名とタスク */}
         <View style={styles.leftContent}>
-          <Text 
-            style={[
-              styles.title, 
-              { color: colors.text },
-              compact && styles.compactTitle
-            ]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {game.name}
-          </Text>
+          {/* タイトル行 - お気に入りボタンとタイトルを横に配置 */}
+          <View style={styles.titleRow}>
+            {/* お気に入りボタン - タイトルの左側に配置 */}
+            {onFavoriteToggle && (
+              <TouchableOpacity 
+                style={styles.favoriteButton}
+                onPress={handleFavoriteToggle}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.6}
+              >
+                <Ionicons 
+                  name={game.favorite ? "star" : "star-outline"} 
+                  size={compact ? 18 : 22} 
+                  color={game.favorite ? "#FFC107" : colors.subText} 
+                />
+              </TouchableOpacity>
+            )}
+            
+            <Text 
+              style={[
+                styles.title, 
+                { color: colors.text },
+                compact && styles.compactTitle
+              ]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {game.name}
+            </Text>
+          </View>
           
           {/* タスク一覧 - ゲーム名のすぐ下 */}
           <View style={[styles.tasksContainer, compact && styles.compactTasksContainer]}>
@@ -123,23 +150,9 @@ const GameCard: React.FC<GameCardProps> = ({ game, compact = false, onFavoriteTo
           </View>
         </View>
         
-        {/* 右側のコンテンツ: お気に入りボタン、リセット時間と進捗バー */}
+        {/* 右側のコンテンツ: リセット時間と進捗バー */}
         <View style={styles.rightContent}>
-          {/* お気に入りボタン - 追加 */}
-          {onFavoriteToggle && (
-            <TouchableOpacity 
-              style={styles.favoriteButton} 
-              onPress={() => onFavoriteToggle(game.id)}
-            >
-              <Ionicons 
-                name={game.favorite ? "star" : "star-outline"} 
-                size={compact ? 16 : 20} 
-                color={game.favorite ? "#FFC107" : colors.subText} 
-              />
-            </TouchableOpacity>
-          )}
-          
-          {/* リセット時間 - 修正後の横スクロール対応 */}
+          {/* リセット時間 - 十分なスペースを確保 */}
           <View style={styles.resetTimeContainer}>
             <Text 
               style={[
@@ -241,29 +254,39 @@ const styles = StyleSheet.create({
   },
   leftContent: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 16,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  favoriteButton: {
+    marginRight: 8,
+    padding: 2,
   },
   rightContent: {
     alignItems: 'flex-end',
-    width: 140, // 幅を広げて横並びを確保
+    width: 130, // 幅を十分に確保
+    justifyContent: 'center', // 縦方向の中央揃え
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 4,
+    flex: 1, // タイトルテキストが利用可能な幅を埋める
   },
   compactTitle: {
     fontSize: 16,
-    marginBottom: 2,
   },
   resetTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginBottom: 5,
+    marginBottom: 10, // 進捗バーとの間隔を増やす
+    width: '100%', // 幅を設定
   },
   resetTimeScrollView: {
-    maxWidth: 110,
+    maxWidth: 110, // スクロール領域の最大幅
     flexGrow: 0,
     flexShrink: 1,
   },
@@ -297,20 +320,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    width: 90,
+    width: '100%', // 幅を設定
   },
   compactProgressContainer: {
-    width: 70,
+    width: 90, // コンパクト時の幅を調整
   },
   progressBar: {
-    width: 50,
+    width: 60,
     height: 8,
     borderRadius: 4,
     overflow: 'hidden',
     marginRight: 4,
   },
   compactProgressBar: {
-    width: 40,
+    width: 50,
     height: 4,
     borderRadius: 2,
   },
@@ -377,13 +400,6 @@ const styles = StyleSheet.create({
   },
   compactTaskItemWithMargin: {
     marginRight: 8,
-  },
-  // お気に入りボタン用のスタイルを追加
-  favoriteButton: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    padding: 5,
   },
 });
 
