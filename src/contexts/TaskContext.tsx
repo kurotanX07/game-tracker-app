@@ -20,8 +20,10 @@ interface TaskContextType {
     gameId: string, 
     taskId: string, 
     settings: {
-      type: 'game' | 'custom';
+      type: 'game' | 'custom' | 'date';
       times: string[];
+      endDate?: string;
+      endTime?: string;
     }
   ) => Promise<void>;
   
@@ -238,8 +240,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     gameId: string,
     taskId: string,
     settings: {
-      type: 'game' | 'custom';
+      type: 'game' | 'custom' | 'date';
       times: string[];
+      endDate?: string;
+      endTime?: string;
     }
   ) => {
     try {
@@ -253,6 +257,8 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
                   ...task.resetSettings,
                   type: settings.type,
                   times: settings.type === 'custom' ? settings.times : [],
+                  endDate: settings.type === 'date' ? settings.endDate : undefined,
+                  endTime: settings.type === 'date' ? settings.endTime : undefined,
                 }
               };
             }

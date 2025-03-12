@@ -16,9 +16,11 @@ export interface DailyTask {
   completed: boolean;
   lastCompletedAt?: Date | null;
   resetSettings: {
-    type: 'game' | 'custom'; // ゲーム共通のリセット時間を使うか、カスタム設定を使うか
+    type: 'game' | 'custom' | 'date'; // ゲーム共通/カスタム/日付指定
     times: string[];         // リセット時間のリスト（例: ["06:00", "18:00"]）
     lastResetAt?: Date | null; // 最後にリセットされた時間
+    endDate?: string;        // タイプが 'date' の場合の終了日 (YYYY-MM-DD形式)
+    endTime?: string;        // 追加: タイプが 'date' の場合の終了時間 (HH:MM形式)
   };
 }
 

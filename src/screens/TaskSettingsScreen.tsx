@@ -30,8 +30,8 @@ const TaskSettingsScreen: React.FC = () => {
   const task = game?.dailyTasks.find(t => t.id === taskId);
   
   // 状態管理
-  const [useCustomSettings, setUseCustomSettings] = useState(
-    task?.resetSettings.type === 'custom' || false
+  const [resetType, setResetType] = useState<'game' | 'custom' | 'date'>(
+    task?.resetSettings.type || 'game'
   );
   const [resetTimes, setResetTimes] = useState(
     (task?.resetSettings.type === 'custom' && task?.resetSettings.times.length > 0)
@@ -41,15 +41,33 @@ const TaskSettingsScreen: React.FC = () => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState<number>(-1);
   
+  // 日付設定の状態
+  const [endDate, setEndDate] = useState<Date | null>(
+    task?.resetSettings.endDate ? new Date(task.resetSettings.endDate) : null
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  // 終了時間設定の状態
+  const [endTime, setEndTime] = useState<string>(
+    task?.resetSettings.endTime || '23:59'
+  );
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  
   // 通知設定の状態
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  // 処理中フラグを追加
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // 通知設定を読み込む
   useEffect(() => {
     if (task) {
       const loadNotificationSetting = async () => {
-        const enabled = await NotificationService.getTaskNotificationSetting(task.id);
-        setNotificationsEnabled(enabled);
+        try {
+          const enabled = await NotificationService.getTaskNotificationSetting(task.id);
+          setNotificationsEnabled(enabled);
+        } catch (error) {
+          console.error('通知設定の読み込みエラー:', error);
+        }
       };
       
       loadNotificationSetting();
@@ -92,6 +110,34 @@ const TaskSettingsScreen: React.FC = () => {
     }
   };
 
+  // 日付選択ハンドラ
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      // 現在日より過去の日付は選択できないようにする
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < today) {
+        Alert.alert('エラー', '現在日より過去の日付は選択できません');
+        return;
+      }
+      
+      setEndDate(selectedDate);
+    }
+  };
+  
+  // 終了時間選択ハンドラ
+  const handleEndTimeChange = (event: any, selectedDate?: Date) => {
+    setShowEndTimePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      const hours = selectedDate.getHours();
+      const minutes = selectedDate.getMinutes();
+      const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      setEndTime(timeString);
+    }
+  };
+
   // リセット時間追加ハンドラ
   const handleAddResetTime = () => {
     setResetTimes([...resetTimes, '12:00']);
@@ -116,58 +162,131 @@ const TaskSettingsScreen: React.FC = () => {
     return date;
   };
   
-  // 通知設定変更ハンドラ（修正版）
+  // 日付をフォーマット
+  const formatDate = (date: Date | null): string => {
+    if (!date) return '日付を選択';
+    return date.toLocaleDateString();
+  };
+  
+  // 通知設定変更ハンドラ
   const handleToggleNotification = async (value: boolean) => {
-    setNotificationsEnabled(value);
-    
-    if (value) {
-      // 通知を有効にする場合は許可を確認
-      const { status } = await NotificationService.requestPermissions();
-      if (status !== 'granted') {
-        Alert.alert(
-          '通知許可が必要です',
-          '設定アプリから本アプリの通知を許可してください',
-          [{ text: '了解' }]
-        );
-        setNotificationsEnabled(false);
-        return;
-      }
+    try {
+      // 処理中フラグをセット
+      setIsProcessing(true);
       
-      // 設定を保存（ただし、通知はスケジュールしない）
-      await NotificationService.saveTaskNotificationSetting(task.id, value);
-      Alert.alert('通知設定を保存しました', 'リセット時間の前後に通知が届きます');
-    } else {
-      // 通知を無効にする場合
-      await NotificationService.saveTaskNotificationSetting(task.id, value);
-      await NotificationService.cancelTaskNotifications(task.id);
+      // UIの即時反映のために先に状態を変更
+      setNotificationsEnabled(value);
+      
+      if (value) {
+        // 通知を有効にする場合は許可を確認
+        const { status } = await NotificationService.requestPermissions();
+        if (status !== 'granted') {
+          Alert.alert(
+            '通知許可が必要です',
+            '設定アプリから本アプリの通知を許可してください',
+            [{ text: '了解' }]
+          );
+          setNotificationsEnabled(false);
+          setIsProcessing(false);
+          return;
+        }
+        
+        // 設定を保存
+        await NotificationService.saveTaskNotificationSetting(task.id, value);
+        
+        // まず既存の通知をキャンセル
+        await NotificationService.cancelTaskNotifications(task.id);
+        
+        // 通知をスケジュール
+        if (game && task) {
+          const success = await NotificationService.scheduleTaskResetNotification(game, task);
+          
+          if (success) {
+            // 成功メッセージを変更（即時通知でないため）
+            console.log('リセット通知を次回のリセット時間にスケジュールしました');
+          } else {
+            Alert.alert('注意', '通知設定を保存しましたが、通知のスケジュールに問題がありました');
+          }
+        }
+      } else {
+        // 通知を無効にする場合
+        await NotificationService.saveTaskNotificationSetting(task.id, value);
+        
+        // 既存の通知をキャンセル
+        const canceled = await NotificationService.cancelTaskNotifications(task.id);
+        console.log(`${canceled}件の通知をキャンセルしました`);
+      }
+    } catch (error) {
+      console.error('通知設定変更エラー:', error);
+      Alert.alert('エラー', '通知設定の変更中にエラーが発生しました');
+      // エラー時は元の状態に戻す
+      setNotificationsEnabled(!value);
+    } finally {
+      // 処理完了
+      setIsProcessing(false);
     }
   };
   
   // 設定保存ハンドラ
   const handleSave = async () => {
-    if (resetTimes.length === 0) {
-      Alert.alert('エラー', '少なくとも1つのリセット時間を設定してください');
-      return;
-    }
-    
-    const settings = {
-      type: useCustomSettings ? 'custom' : 'game',
-      times: useCustomSettings ? resetTimes : [],
-    };
-    
     try {
+      setIsProcessing(true);
+      
+      // リセットタイプによるバリデーション
+      if (resetType === 'custom' && resetTimes.length === 0) {
+        Alert.alert('エラー', '少なくとも1つのリセット時間を設定してください');
+        setIsProcessing(false);
+        return;
+      }
+      
+      if (resetType === 'date' && !endDate) {
+        Alert.alert('エラー', 'リセット日を選択してください');
+        setIsProcessing(false);
+        return;
+      }
+      
+      // リセット設定の更新
+      let settings: any = {
+        type: resetType,
+        times: resetType === 'custom' ? resetTimes : [],
+      };
+      
+      // 日付指定の場合は終了日時を追加
+      if (resetType === 'date' && endDate) {
+        settings.endDate = endDate.toISOString().split('T')[0]; // YYYY-MM-DD形式
+        settings.endTime = endTime; // HH:MM形式
+      } else {
+        // 日付指定でない場合は終了日時を削除
+        settings.endDate = undefined;
+        settings.endTime = undefined;
+      }
+      
       await updateTaskSettings(gameId, taskId, settings);
       
-      // 設定変更後に通知を更新
+      // 設定変更後に通知を更新 (通知有効時のみ)
       if (notificationsEnabled) {
+        // まず既存の通知をキャンセル
+        await NotificationService.cancelTaskNotifications(task.id);
+        
+        // 更新された設定で通知をスケジュール
+        const updatedTask = {
+          ...task,
+          resetSettings: {
+            ...task.resetSettings,
+            ...settings
+          }
+        };
+        
         await NotificationService.scheduleTaskResetNotification(
-          { ...game, dailyTasks: [{ ...task, resetSettings: { ...task.resetSettings, ...settings }}] },
-          { ...task, resetSettings: { ...task.resetSettings, ...settings }}
+          { ...game, dailyTasks: [updatedTask] },
+          updatedTask
         );
       }
       
+      setIsProcessing(false);
       navigation.goBack();
     } catch (error) {
+      setIsProcessing(false);
       Alert.alert('エラー', '設定の保存に失敗しました');
     }
   };
@@ -183,11 +302,19 @@ const TaskSettingsScreen: React.FC = () => {
           text: '削除',
           style: 'destructive',
           onPress: async () => {
-            // 通知をキャンセル
-            await NotificationService.cancelTaskNotifications(task.id);
-            // タスクを削除
-            await removeTask(gameId, taskId, 'daily');
-            navigation.goBack();
+            try {
+              setIsProcessing(true);
+              // 通知をキャンセル
+              await NotificationService.cancelTaskNotifications(task.id);
+              // タスクを削除
+              await removeTask(gameId, taskId, 'daily');
+              setIsProcessing(false);
+              navigation.goBack();
+            } catch (error) {
+              setIsProcessing(false);
+              console.error('タスク削除エラー:', error);
+              Alert.alert('エラー', 'タスクの削除に失敗しました');
+            }
           },
         },
       ]
@@ -215,6 +342,7 @@ const TaskSettingsScreen: React.FC = () => {
               onValueChange={handleToggleNotification}
               trackColor={{ false: '#DDDDDD', true: colors.primary }}
               thumbColor="#FFFFFF"
+              disabled={isProcessing}
             />
           </View>
           
@@ -227,29 +355,87 @@ const TaskSettingsScreen: React.FC = () => {
             </Text>
           </View>
           
-          {/* カスタムリセット設定 */}
-          <View style={[styles.settingRow, { marginTop: 16 }]}>
-            <Text style={[styles.settingLabel, { color: colors.text }]}>
-              カスタムリセット設定を使用
+          {/* リセット設定タイプ選択 */}
+          <View style={styles.resetTypeContainer}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              リセット設定
             </Text>
-            <Switch
-              value={useCustomSettings}
-              onValueChange={setUseCustomSettings}
-              trackColor={{ false: '#DDDDDD', true: colors.primary }}
-              thumbColor="#FFFFFF"
-            />
+            
+            {/* ゲーム共通設定 */}
+            <TouchableOpacity 
+              style={[
+                styles.resetTypeOption,
+                resetType === 'game' && [styles.resetTypeSelected, { borderColor: colors.primary }]
+              ]}
+              onPress={() => setResetType('game')}
+              disabled={isProcessing}
+            >
+              <Ionicons 
+                name={resetType === 'game' ? "radio-button-on" : "radio-button-off"} 
+                size={24} 
+                color={resetType === 'game' ? colors.primary : colors.text} 
+              />
+              <View style={styles.resetTypeTextContainer}>
+                <Text style={[styles.resetTypeText, { color: colors.text }]}>
+                  ゲーム共通のリセット時間を使用
+                </Text>
+                <Text style={[styles.resetTypeDescription, { color: colors.subText }]}>
+                  設定された時間ごとに毎日リセット
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* カスタム時間設定 */}
+            <TouchableOpacity 
+              style={[
+                styles.resetTypeOption,
+                resetType === 'custom' && [styles.resetTypeSelected, { borderColor: colors.primary }]
+              ]}
+              onPress={() => setResetType('custom')}
+              disabled={isProcessing}
+            >
+              <Ionicons 
+                name={resetType === 'custom' ? "radio-button-on" : "radio-button-off"} 
+                size={24} 
+                color={resetType === 'custom' ? colors.primary : colors.text} 
+              />
+              <View style={styles.resetTypeTextContainer}>
+                <Text style={[styles.resetTypeText, { color: colors.text }]}>
+                  カスタムリセット時間を使用
+                </Text>
+                <Text style={[styles.resetTypeDescription, { color: colors.subText }]}>
+                  このタスク専用のリセット時間を設定
+                </Text>
+              </View>
+            </TouchableOpacity>
+            
+            {/* 日付指定設定 */}
+            <TouchableOpacity 
+              style={[
+                styles.resetTypeOption,
+                resetType === 'date' && [styles.resetTypeSelected, { borderColor: colors.primary }]
+              ]}
+              onPress={() => setResetType('date')}
+              disabled={isProcessing}
+            >
+              <Ionicons 
+                name={resetType === 'date' ? "radio-button-on" : "radio-button-off"} 
+                size={24} 
+                color={resetType === 'date' ? colors.primary : colors.text} 
+              />
+              <View style={styles.resetTypeTextContainer}>
+                <Text style={[styles.resetTypeText, { color: colors.text }]}>
+                  特定日時までリセットしない
+                </Text>
+                <Text style={[styles.resetTypeDescription, { color: colors.subText }]}>
+                  指定した日時まで完了状態を維持
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
           
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={20} color={colors.primary} style={styles.infoIcon} />
-            <Text style={[styles.infoText, { color: colors.subText }]}>
-              {useCustomSettings
-                ? 'このタスクは独自のリセット時間を使用します'
-                : 'このタスクはゲーム共通のリセット時間を使用します'}
-            </Text>
-          </View>
-          
-          {useCustomSettings && (
+          {/* カスタムリセット時間設定 */}
+          {resetType === 'custom' && (
             <View style={styles.timesContainer}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 リセット時間
@@ -266,6 +452,7 @@ const TaskSettingsScreen: React.FC = () => {
                       }
                     ]}
                     onPress={() => handleShowTimePicker(index)}
+                    disabled={isProcessing}
                   >
                     <Text style={[styles.timeText, { color: colors.text }]}>{time}</Text>
                   </TouchableOpacity>
@@ -281,6 +468,7 @@ const TaskSettingsScreen: React.FC = () => {
                         }
                       ]}
                       onPress={() => handleRemoveResetTime(index)}
+                      disabled={isProcessing}
                     >
                       <Text style={[styles.removeButtonText, { color: colors.error }]}>削除</Text>
                     </TouchableOpacity>
@@ -288,7 +476,7 @@ const TaskSettingsScreen: React.FC = () => {
                 </View>
               ))}
               
-              {/* 時間選択のDateTimePicker - 表示中のインデックスに対応 */}
+              {/* 時間選択のDateTimePicker */}
               {showTimePicker && (
                 <DateTimePicker
                   value={getTimeAsDate(resetTimes[selectedTimeIndex])}
@@ -310,6 +498,7 @@ const TaskSettingsScreen: React.FC = () => {
                   }
                 ]}
                 onPress={handleAddResetTime}
+                disabled={isProcessing}
               >
                 <Text style={[styles.addButtonText, { color: colors.primary }]}>
                   + リセット時間を追加
@@ -317,36 +506,117 @@ const TaskSettingsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           )}
-        </View>
-        
-        {!useCustomSettings && (
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              ゲーム共通のリセット時間
-            </Text>
-            
-            <View style={styles.gameTimesContainer}>
-              {game.resetTimes.map((time, index) => (
-                <View key={index} style={[
-                  styles.gameTimeItem,
-                  { backgroundColor: colors.background, borderColor: colors.border }
-                ]}>
-                  <Text style={[styles.gameTimeText, { color: colors.text }]}>
-                    {time}
+          
+          {/* 日付指定設定（日時両方を設定） */}
+          {resetType === 'date' && (
+            <View style={styles.dateContainer}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                リセット日時
+              </Text>
+              
+              {/* 日付と時間を横並びで表示 */}
+              <View style={styles.dateTimeRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.datePickerButton,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                      flex: 1, // 幅を調整
+                      marginRight: 8 // 日付と時間の間隔
+                    }
+                  ]}
+                  onPress={() => setShowDatePicker(true)}
+                  disabled={isProcessing}
+                >
+                  <Ionicons name="calendar-outline" size={20} color={colors.text} style={styles.calendarIcon} />
+                  <Text style={[styles.dateText, { color: colors.text }]}>
+                    {endDate ? formatDate(endDate) : '日付を選択'}
                   </Text>
-                </View>
-              ))}
+                </TouchableOpacity>
+                
+                {/* 時間選択 */}
+                <TouchableOpacity
+                  style={[
+                    styles.timePickerButton,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                      width: 100 // 固定幅
+                    }
+                  ]}
+                  onPress={() => setShowEndTimePicker(true)}
+                  disabled={isProcessing}
+                >
+                  <Ionicons name="time-outline" size={20} color={colors.text} style={styles.calendarIcon} />
+                  <Text style={[styles.timeText, { color: colors.text }]}>{endTime}</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* 日付選択のDateTimePicker */}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={endDate || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()} // 現在日以降のみ選択可能
+                  style={styles.datePicker}
+                />
+              )}
+              
+              {/* 時間選択のDateTimePicker */}
+              {showEndTimePicker && (
+                <DateTimePicker
+                  value={getTimeAsDate(endTime)}
+                  mode="time"
+                  is24Hour={true}
+                  display="default"
+                  onChange={handleEndTimeChange}
+                  style={styles.datePicker}
+                />
+              )}
+              
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle-outline" size={20} color={colors.primary} style={styles.infoIcon} />
+                <Text style={[styles.infoText, { color: colors.subText }]}>
+                  指定した日時までタスク完了状態を維持します。その後、次回のリセット時間でリセットされます。
+                </Text>
+              </View>
             </View>
-            
-            <Text style={[styles.noteText, { color: colors.subText }]}>
-              ※ゲーム共通の時間を変更するには、ゲーム設定画面から行ってください
-            </Text>
-          </View>
-        )}
+          )}
+          
+          {/* ゲーム共通設定の場合の表示 */}
+          {resetType === 'game' && (
+            <View style={styles.gameTimesContainer}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                ゲーム共通のリセット時間
+              </Text>
+              
+              <View style={styles.gameTimesRow}>
+                {game.resetTimes.map((time, index) => (
+                  <View key={index} style={[
+                    styles.gameTimeItem,
+                    { backgroundColor: colors.background, borderColor: colors.border }
+                  ]}>
+                    <Text style={[styles.gameTimeText, { color: colors.text }]}>
+                      {time}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+              
+              <Text style={[styles.noteText, { color: colors.subText }]}>
+                ※ゲーム共通の時間を変更するには、ゲーム設定画面から行ってください
+              </Text>
+            </View>
+          )}
+        </View>
         
         <TouchableOpacity 
           style={[styles.deleteButton, { backgroundColor: colors.card, borderColor: colors.error }]} 
           onPress={handleDeleteTask}
+          disabled={isProcessing}
         >
           <Text style={[styles.deleteButtonText, { color: colors.error }]}>タスクを削除</Text>
         </TouchableOpacity>
@@ -367,6 +637,7 @@ const TaskSettingsScreen: React.FC = () => {
             }
           ]} 
           onPress={() => navigation.goBack()}
+          disabled={isProcessing}
         >
           <Text style={[styles.cancelButtonText, { color: colors.subText }]}>キャンセル</Text>
         </TouchableOpacity>
@@ -374,18 +645,23 @@ const TaskSettingsScreen: React.FC = () => {
           style={[
             styles.saveButton,
             {
-              backgroundColor: colors.primary
+              backgroundColor: colors.primary,
+              opacity: isProcessing ? 0.7 : 1
             }
           ]} 
           onPress={handleSave}
+          disabled={isProcessing}
         >
-          <Text style={styles.saveButtonText}>保存</Text>
+          <Text style={styles.saveButtonText}>
+            {isProcessing ? '処理中...' : '保存'}
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 };
 
+// スタイル定義を拡張
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -436,13 +712,14 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   infoIcon: {
     marginRight: 8,
+    marginTop: 2,
   },
   infoText: {
     fontSize: 14,
@@ -453,6 +730,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 12,
   },
+  // リセットタイプ選択のスタイル
+  resetTypeContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  resetTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: 8,
+  },
+  resetTypeSelected: {
+    borderWidth: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  resetTypeTextContainer: {
+    marginLeft: 8,
+    flex: 1,
+  },
+  resetTypeText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  resetTypeDescription: {
+    fontSize: 14,
+    marginTop: 2,
+  },
+  // 時間設定のスタイル
   timesContainer: {
     marginTop: 8,
   },
@@ -490,7 +799,33 @@ const styles = StyleSheet.create({
   addButtonText: {
     fontWeight: 'bold',
   },
+  // 日付選択のスタイル
+  dateContainer: {
+    marginTop: 8,
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  datePickerButton: {
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  calendarIcon: {
+    marginRight: 8,
+  },
+  dateText: {
+    fontSize: 16,
+  },
+  // ゲーム共通時間のスタイル
   gameTimesContainer: {
+    marginTop: 8,
+  },
+  gameTimesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 12,
@@ -511,6 +846,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 8,
   },
+  // フッターのスタイル
   footer: {
     flexDirection: 'row',
     padding: 16,

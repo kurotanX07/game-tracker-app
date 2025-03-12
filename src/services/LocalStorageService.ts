@@ -67,7 +67,37 @@ class LocalStorageService {
       const updatedGames = currentGames.map(game => {
         // ゲームのタスクをマップで更新
         const updatedTasks = game.dailyTasks.map(task => {
-          // リセット設定を取得（タスク固有かゲーム共通か）
+          // 日付指定タイプの場合は終了日時をチェック
+          if (task.resetSettings.type === 'date' && task.resetSettings.endDate) {
+            // 終了日時を生成
+            const endDate = new Date(task.resetSettings.endDate);
+            
+            // 終了時間が指定されている場合はそれを使用、なければ23:59:59
+            if (task.resetSettings.endTime) {
+              const [hours, minutes] = task.resetSettings.endTime.split(':').map(Number);
+              endDate.setHours(hours, minutes, 0, 0);
+            } else {
+              endDate.setHours(23, 59, 59, 999); // 終了日の終わりを設定
+            }
+            
+            // 現在日時が終了日時を過ぎている場合はリセット
+            if (now > endDate) {
+              return {
+                ...task,
+                completed: false,
+                lastCompletedAt: null,
+                resetSettings: {
+                  ...task.resetSettings,
+                  lastResetAt: now
+                }
+              };
+            }
+            
+            // 終了日時以前の場合はリセットしない
+            return task;
+          }
+          
+          // 通常のリセット（時間ベース）
           const resetTimes = task.resetSettings.type === 'custom' 
             ? task.resetSettings.times 
             : game.resetTimes;
@@ -121,7 +151,7 @@ class LocalStorageService {
         game.resetTimes = [game.resetTime]; // 既存のリセット時間を配列の最初の要素にする
       }
       
-      // タスクにリセット設定がなければ追加
+      // タスクにresetSettingsがない場合は追加
       const updatedTasks = game.dailyTasks.map((task: any) => {
         if (!task.resetSettings) {
           return {

@@ -37,43 +37,32 @@ const ThemedApp = () => {
   
   // Initialize Notifications when app starts
   useEffect(() => {
-    // 通知のタスクスケジュール
-    const initNotifications = async () => {
-      try {
-        // このセッションで既に初期化済みかチェック
-        const isInitializedThisSession = await AsyncStorage.getItem(NOTIFICATION_INIT_CHECK_KEY);
-        
-        if (isInitializedThisSession === 'true') {
-          console.log('このセッションで既に通知が初期化されています。スキップします。');
-          setNotificationsInitialized(true);
-          return;
-        }
-        
-        // パーミッションチェック（リクエストはしない、設定画面でリクエスト）
-        const { status } = await Notifications.getPermissionsAsync();
-        if (status === 'granted') {
-          console.log('通知権限があります。通知初期化を実行します。');
-          
-          // 通知リセット（既存の通知をクリア）
-          await NotificationService.resetAllNotifications();
-          
-          // すべてのタスク通知を更新
-          await NotificationService.updateAllTaskNotifications(games);
-          
-          // このセッションでの初期化完了をマーク
-          await AsyncStorage.setItem(NOTIFICATION_INIT_CHECK_KEY, 'true');
-          setNotificationsInitialized(true);
-          
-          console.log('通知の初期化が完了しました');
-        } else {
-          console.log('通知権限がありません');
-          setNotificationsInitialized(true); // 権限がない場合も初期化完了とマーク
-        }
-      } catch (error) {
-        console.error('通知初期化エラー:', error);
-        setNotificationsInitialized(true); // エラー時も初期化完了とマーク
-      }
-    };
+    // 通知のタスクスケジュール (改善版)
+// ThemedApp コンポーネント内の通知初期化関数
+const initNotifications = async () => {
+  try {
+    // このセッションで既に初期化済みかチェック
+    const isInitializedThisSession = await AsyncStorage.getItem(NOTIFICATION_INIT_CHECK_KEY);
+    
+    if (isInitializedThisSession === 'true') {
+      console.log('このセッションで既に通知が初期化されています。スキップします。');
+      setNotificationsInitialized(true);
+      return;
+    }
+    
+    // 通知の初期セットアップを一度だけ実行
+    // 初回起動時にはリセットのみ行い、通知のスケジュールは行わない
+    await NotificationService.initialSetup(games);
+    
+    // このセッションでの初期化完了をマーク
+    await AsyncStorage.setItem(NOTIFICATION_INIT_CHECK_KEY, 'true');
+    setNotificationsInitialized(true);
+    console.log('通知の初期化が完了しました');
+  } catch (error) {
+    console.error('通知初期化エラー:', error);
+    setNotificationsInitialized(true); // エラー時も初期化完了とマーク
+  }
+};
     
     // 通知初期化を実行
     if (!notificationsInitialized) {

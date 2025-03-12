@@ -14,6 +14,17 @@ interface CustomTaskItemProps {
   onIncrement?: (taskId: string) => void;
 }
 
+// 日付をフォーマットする関数を追加
+const formatDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  
+  return `${year}/${month}/${day} ${hours}:${minutes}`;
+};
+
 export const DailyTaskItem: React.FC<DailyTaskItemProps> = ({ task, onToggle }) => {
   const { colors } = useTheme();
   
@@ -51,7 +62,7 @@ export const DailyTaskItem: React.FC<DailyTaskItemProps> = ({ task, onToggle }) 
         </Text>
         {task.lastCompletedAt && (
           <Text style={[styles.dateText, { color: colors.subText }]}>
-            最終完了: {new Date(task.lastCompletedAt).toLocaleString()}
+            最終完了: {formatDate(new Date(task.lastCompletedAt))}
           </Text>
         )}
       </View>
