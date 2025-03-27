@@ -26,8 +26,8 @@
         <action android:name="android.intent.action.VIEW"/>
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="com.anonymous.gametrackerapp"/>
-        <data android:scheme="exp+game-tracker-app"/>
+        <data android:scheme="com.anonymous.dailytaskmanagerapp"/>
+        <data android:scheme="exp+daily-task-manager-app"/>
       </intent-filter>
     </activity>
   </application>
