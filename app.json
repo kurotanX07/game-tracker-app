@@ -29,7 +29,8 @@
       },
       "config": {
         "googleMobileAdsAppId": "ca-app-pub-3940256099942544~3347511713"
-      }
+      },
+      "package": "com.anonymous.gametrackerapp"
     },
     "web": {
       "favicon": null
