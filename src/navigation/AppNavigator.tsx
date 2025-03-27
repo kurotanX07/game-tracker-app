@@ -90,7 +90,7 @@ const AppNavigator: React.FC = () => {
         },
         headerTintColor: colors.text,
         headerTitleStyle: {
-          fontWeight: '600',  // 'bold'ではなく数値または文字列の値を使用
+          fontWeight: '600',
         },
       }}
     >
@@ -102,19 +102,18 @@ const AppNavigator: React.FC = () => {
       <Stack.Screen 
         name="GameAdd" 
         component={GameAddScreen} 
-        options={{ title: 'ゲームを追加' }}
+        options={{ title: 'タスクを追加' }}
       />
       <Stack.Screen 
         name="GameDetail" 
         component={GameDetailScreen} 
-        options={{ title: 'ゲーム詳細' }}
+        options={{ title: 'タスク詳細' }}
       />
       <Stack.Screen 
         name="TaskSettings" 
         component={TaskSettingsScreen} 
         options={{ title: 'タスク設定' }}
       />
-      {/* 新しい表示設定画面を追加 */}
       <Stack.Screen 
         name="DisplaySettings" 
         component={DisplaySettingsScreen} 

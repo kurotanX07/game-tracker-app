@@ -323,7 +323,7 @@ const HomeScreen: React.FC = () => {
     }
   };
 
-  // ゲーム追加画面に遷移
+  // タスク追加画面に遷移
   const handleAddGame = () => {
     navigation.navigate('GameAdd');
   };
@@ -333,7 +333,7 @@ const HomeScreen: React.FC = () => {
     navigation.navigate('DisplaySettings');
   };
   
-  // ゲームを上下に移動する関数（新規追加）
+  // タスクを上下に移動する関数（新規追加）
   const handleMoveGame = (index: number, direction: 'up' | 'down') => {
     if (
       (direction === 'up' && index === 0) || 
@@ -430,7 +430,7 @@ const HomeScreen: React.FC = () => {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.subText }]}>ゲームデータを読み込み中...</Text>
+        <Text style={[styles.loadingText, { color: colors.subText }]}>タスクデータを読み込み中...</Text>
       </View>
     );
   }
@@ -442,7 +442,7 @@ const HomeScreen: React.FC = () => {
         onLayout={onHeaderLayout}
       >
         <View style={styles.titleContainer}>
-          <Text style={[styles.title, { color: colors.text }]}>マイゲーム</Text>
+          <Text style={[styles.title, { color: colors.text }]}>マイタスク</Text>
           
           <View style={styles.headerButtons}>
             {/* 並び替えボタン（新規追加） */}
@@ -507,12 +507,12 @@ const HomeScreen: React.FC = () => {
 
       {games.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: colors.subText }]}>ゲームがまだ登録されていません</Text>
+          <Text style={[styles.emptyText, { color: colors.subText }]}>タスクがまだ登録されていません</Text>
           <TouchableOpacity 
             style={[styles.startButton, { backgroundColor: colors.primary }]} 
             onPress={handleAddGame}
           >
-            <Text style={styles.startButtonText}>最初のゲームを追加する</Text>
+            <Text style={styles.startButtonText}>最初のタスクを追加する</Text>
           </TouchableOpacity>
         </View>
       ) : (

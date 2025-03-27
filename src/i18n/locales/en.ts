@@ -21,23 +21,23 @@ export default {
       done: 'Done'
     },
     home: {
-      title: 'My Games',
-      emptyState: 'No games added yet',
-      addFirstGame: 'Add your first game',
-      loadingGames: 'Loading game data...',
-      errorLoadingGames: 'Failed to load game data',
+      title: 'My Tasks',
+      emptyState: 'No tasks added yet',
+      addFirstGame: 'Add your first task',
+      loadingGames: 'Loading task data...',
+      errorLoadingGames: 'Failed to load task data',
       sortMode: {
         custom: 'Custom order mode',
         resetTime: 'Sorted by reset time',
-        completed: 'Completed games at bottom',
+        completed: 'Completed tasks at bottom',
         compact: 'Compact view',
         sorting: 'Sorting mode (use arrows to change order)'
       }
     },
     gameAdd: {
-      title: 'Add Game',
-      gameName: 'Game Name',
-      nameInputPlaceholder: 'Enter game name',
+      title: 'Add Task',
+      gameName: 'Task Name',
+      nameInputPlaceholder: 'Enter task name',
       resetTime: 'Task Reset Time',
       addResetTime: '+ Add reset time',
       removeTime: 'Remove',
@@ -45,23 +45,23 @@ export default {
       taskInputPlaceholder: 'Enter task name',
       addTask: '+ Add task',
       validation: {
-        gameNameRequired: 'Please enter a game name',
+        gameNameRequired: 'Please enter a task name',
         resetTimeRequired: 'Please set at least one reset time',
         taskNameRequired: 'Please fill in all task names'
       },
-      errorSaving: 'Failed to save the game'
+      errorSaving: 'Failed to save the task'
     },
     gameDetail: {
-      title: 'Game Details',
+      title: 'Task Details',
       resetTime: 'Reset time:',
       tasks: 'Tasks',
       addTask: 'Add',
-      deleteGame: 'Delete Game',
+      deleteGame: 'Delete Task',
       deleteConfirm: {
-        title: 'Delete Game',
+        title: 'Delete Task',
         message: 'Are you sure you want to delete'
       },
-      gameNotFound: 'Game not found',
+      gameNotFound: 'Task not found',
       noTasks: 'No tasks added yet',
       modalAddTask: {
         title: 'Add Task',
@@ -73,46 +73,9 @@ export default {
       },
       modalResetTime: {
         title: 'Reset Time Settings',
-        commonTime: 'Game common reset times:',
+        commonTime: 'Common reset times:',
         addTime: '+ Add reset time',
-        info: 'Changing reset times will affect all tasks using the game common settings.'
-      }
-    },
-    taskSettings: {
-      title: 'Task Settings',
-      notifications: 'Reset Notifications',
-      notificationInfo: {
-        enabled: 'You will receive notifications 5 minutes before and at reset time',
-        disabled: 'Notifications are turned off'
-      },
-      resetSettings: 'Reset Settings',
-      resetType: {
-        game: {
-          title: 'Use game common reset times',
-          description: 'Resets daily at configured times'
-        },
-        custom: {
-          title: 'Use custom reset times',
-          description: 'Set specific reset times for this task'
-        },
-        date: {
-          title: 'Do not reset until specific date',
-          description: 'Maintain completion state until specified date'
-        }
-      },
-      resetTime: 'Reset Time',
-      addResetTime: '+ Add reset time',
-      resetDate: 'Reset Date & Time',
-      selectDate: 'Select date',
-      gameCommonTimes: 'Game Common Reset Times',
-      noteChangeCommonTime: '※ To change common reset times, go to the game settings screen',
-      dateModeInfo: 'Task completion state will be maintained until the specified date and time. It will reset at the next reset time after that.',
-      permissionDenied: 'Notification permission required',
-      permissionMessage: 'Please enable notifications for this app in the Settings app',
-      deleteTask: 'Delete Task',
-      taskDeleteConfirm: {
-        title: 'Delete Task',
-        message: 'Are you sure you want to delete'
+        info: 'Changing reset times will affect all tasks using the common settings.'
       }
     },
     settings: {
@@ -128,11 +91,11 @@ export default {
       helpAndSupport: 'Help & Support',
       appInfo: {
         version: 'Version:',
-        copyright: '© 2025 Game Daily Tasks'
+        copyright: '© 2025 Daily Task Manager'
       },
       reset: {
         title: 'Reset Data',
-        message: 'Delete all games and task data? This action cannot be undone.',
+        message: 'Delete all task data? This action cannot be undone.',
         success: 'All data has been reset'
       }
     },

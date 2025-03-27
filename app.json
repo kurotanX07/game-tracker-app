@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Game Tracker",
-    "slug": "game-tracker-app",
+    "name": "デーリータスク管理",
+    "slug": "daily-task-manager-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": null,
@@ -30,7 +30,7 @@
       "config": {
         "googleMobileAdsAppId": "ca-app-pub-3940256099942544~3347511713"
       },
-      "package": "com.anonymous.gametrackerapp"
+      "package": "com.anonymous.dailytaskmanagerapp"
     },
     "web": {
       "favicon": null
