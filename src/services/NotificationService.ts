@@ -3,12 +3,28 @@ import { Platform } from 'react-native';
 import { Game, DailyTask } from '../@types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * タスク通知設定の型定義
+ */
+export interface TaskNotificationSettings {
+  enabled: boolean;
+  beforeMinutes: number;  // リセット時間の何分前に通知するか
+  notifyOnReset: boolean; // リセット時間にも通知するか
+}
+
 class NotificationService {
   // ストレージキー
   static NOTIFICATION_SETTINGS_KEY = 'task_notification_settings';
   static NOTIFICATION_INIT_KEY = 'notification_initialized';
   static NOTIFICATION_INIT_CHECK_KEY = 'notification_init_session';
   static DEBUG_MODE = true; // デバッグログの有効化/無効化
+  
+  // デフォルト設定
+  static DEFAULT_NOTIFICATION_SETTINGS: TaskNotificationSettings = {
+    enabled: false,
+    beforeMinutes: 5,  // デフォルトは5分前
+    notifyOnReset: true, // デフォルトではリセット時間にも通知する
+  };
   
   // ログ出力用ヘルパー関数
   static log(message: string, data?: any) {
@@ -50,47 +66,76 @@ class NotificationService {
     return await Notifications.requestPermissionsAsync();
   }
 
-  // タスク通知設定を保存
-  static async saveTaskNotificationSetting(taskId: string, enabled: boolean): Promise<void> {
+  // タスク通知設定を保存する拡張メソッド
+  static async saveTaskNotificationSettings(
+    taskId: string, 
+    settings: TaskNotificationSettings
+  ): Promise<void> {
     try {
       const settingsJson = await AsyncStorage.getItem(this.NOTIFICATION_SETTINGS_KEY);
-      let settings = {};
+      let allSettings = {};
       
       try {
-        settings = settingsJson ? JSON.parse(settingsJson) : {};
+        allSettings = settingsJson ? JSON.parse(settingsJson) : {};
       } catch (e) {
         this.log('通知設定の解析に失敗しました。設定をリセットします。');
-        settings = {};
+        allSettings = {};
       }
       
-      settings[taskId] = enabled;
-      this.log(`タスク ${taskId} の通知設定を ${enabled ? '有効' : '無効'} に変更しました`);
+      allSettings[taskId] = settings;
+      this.log(`タスク ${taskId} の通知設定を更新しました:`, settings);
       
-      await AsyncStorage.setItem(this.NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+      await AsyncStorage.setItem(this.NOTIFICATION_SETTINGS_KEY, JSON.stringify(allSettings));
     } catch (error) {
       console.error('通知設定の保存に失敗しました:', error);
       throw error; // エラーを上位に伝播させる
     }
   }
 
-  // タスク通知設定を取得
-  static async getTaskNotificationSetting(taskId: string): Promise<boolean> {
+  // タスク通知設定を取得する拡張メソッド
+  static async getTaskNotificationSettings(taskId: string): Promise<TaskNotificationSettings> {
     try {
       const settingsJson = await AsyncStorage.getItem(this.NOTIFICATION_SETTINGS_KEY);
-      let settings = {};
+      let allSettings = {};
       
       try {
-        settings = settingsJson ? JSON.parse(settingsJson) : {};
+        allSettings = settingsJson ? JSON.parse(settingsJson) : {};
       } catch (e) {
         this.log('通知設定の解析に失敗しました。設定をリセットします。');
-        settings = {};
+        allSettings = {};
       }
       
-      // 明示的に有効にされたタスクのみtrue - デフォルトはfalse
-      return settings[taskId] === true;
+      // 保存されている設定またはデフォルト設定を返す
+      return allSettings[taskId] || { ...this.DEFAULT_NOTIFICATION_SETTINGS };
+    } catch (error) {
+      console.error('通知設定の取得に失敗しました:', error);
+      return { ...this.DEFAULT_NOTIFICATION_SETTINGS };
+    }
+  }
+
+  // 従来のメソッド互換性のための関数
+  static async getTaskNotificationSetting(taskId: string): Promise<boolean> {
+    try {
+      const settings = await this.getTaskNotificationSettings(taskId);
+      return settings.enabled;
     } catch (error) {
       console.error('通知設定の取得に失敗しました:', error);
       return false;
+    }
+  }
+
+  // 従来のメソッド互換性のための関数
+  static async saveTaskNotificationSetting(taskId: string, enabled: boolean): Promise<void> {
+    try {
+      // 既存の設定を取得
+      const settings = await this.getTaskNotificationSettings(taskId);
+      // 有効/無効フラグだけ更新
+      settings.enabled = enabled;
+      // 更新した設定を保存
+      await this.saveTaskNotificationSettings(taskId, settings);
+    } catch (error) {
+      console.error('通知設定の保存に失敗しました:', error);
+      throw error;
     }
   }
   
@@ -209,31 +254,85 @@ class NotificationService {
     return todayTarget;
   }
   
-  // 次回のリセット通知をスケジュール (時刻ベース)
-  static async scheduleNextNotificationForTime(
+  // 特定の時間の指定分前の次回のタイムスタンプを取得する拡張関数
+  static getNextBeforeOccurrenceWithMinutes(
+    hours: number, 
+    minutes: number, 
+    beforeMinutes: number
+  ): Date | null {
+    if (beforeMinutes <= 0) return null;
+  
+    const now = new Date();
+    
+    // 指定分前の時間を計算
+    const totalMinutes = hours * 60 + minutes - beforeMinutes;
+    
+    // 調整後の時間と分を計算
+    let adjustedTotalMinutes = totalMinutes;
+    
+    // 負の値になった場合は前日の時間に調整
+    if (adjustedTotalMinutes < 0) {
+      adjustedTotalMinutes += 24 * 60; // 1日を加算
+    }
+    
+    const beforeHours = Math.floor(adjustedTotalMinutes / 60) % 24;
+    const beforeMinutesValue = adjustedTotalMinutes % 60;
+    
+    const todayTarget = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      beforeHours,
+      beforeMinutesValue,
+      0,
+      0
+    );
+    
+    // 現在時刻がリセット時間より後で、指定分前の時間が過去の場合
+    const resetTime = this.getNextOccurrence(hours, minutes);
+    const isResetToday = resetTime.getDate() === now.getDate();
+    
+    // リセット時間が今日で、指定分前が過去の場合はスキップ
+    if (isResetToday && todayTarget < now) {
+      return null;
+    }
+    
+    // 現在時刻が指定分前の時間より後なら翌日
+    if (now > todayTarget) {
+      todayTarget.setDate(todayTarget.getDate() + 1);
+    }
+    
+    return todayTarget;
+  }
+  
+  // 次回のリセット通知をスケジュール (カスタムタイミング対応版)
+  static async scheduleNextNotificationForTimeWithSettings(
     game: Game, 
     task: DailyTask, 
-    timeStr: string
+    timeStr: string,
+    settings: TaskNotificationSettings
   ): Promise<boolean> {
     try {
       const [hours, minutes] = timeStr.split(':').map(Number);
       
-      // 次回のリセット時間と5分前の時間のタイムスタンプを取得
+      // 次回のリセット時間と指定分前の時間のタイムスタンプを取得
       const nextResetTime = this.getNextOccurrence(hours, minutes);
-      const nextBeforeTime = this.getNextBeforeOccurrence(hours, minutes);
+      const nextBeforeTime = settings.beforeMinutes > 0 
+        ? this.getNextBeforeOccurrenceWithMinutes(hours, minutes, settings.beforeMinutes)
+        : null;
       
       // 通知ID (日付を含む)
       const { beforeId, afterId } = this.getNotificationIds(task.id, timeStr, nextResetTime);
       
       let scheduledCount = 0;
       
-      // 5分前の通知
-      if (nextBeforeTime !== null) {
-        // 5分前の通知が必要で、スケジュール可能な場合
+      // 指定分前の通知 (設定で有効かつ、タイミングが有効な場合)
+      if (settings.beforeMinutes > 0 && nextBeforeTime !== null) {
+        // 指定分前の通知が必要で、スケジュール可能な場合
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `${game.name} リセットまもなく`,
-            body: `「${task.name}」が5分後にリセットされます`,
+            body: `「${task.name}」があと${settings.beforeMinutes}分でリセットされます`,
             data: { 
               gameId: game.id, 
               taskId: task.id, 
@@ -244,34 +343,36 @@ class NotificationService {
           trigger: nextBeforeTime,
           identifier: beforeId
         });
-        this.log(`タスク ${task.id} (${task.name}) の事前通知をスケジュールしました:`, {
+        this.log(`タスク ${task.id} (${task.name}) の事前通知(${settings.beforeMinutes}分前)をスケジュールしました:`, {
           時間: timeStr,
           予定日時: nextBeforeTime.toLocaleString()
         });
         scheduledCount++;
       }
       
-      // リセット通知
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `${game.name} タスクリセット`,
-          body: `「${task.name}」がリセットされました`,
-          data: { 
-            gameId: game.id, 
-            taskId: task.id, 
-            timeStr: timeStr,
-            type: 'after_reset'
+      // リセット時の通知 (設定で有効な場合)
+      if (settings.notifyOnReset) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: `${game.name} タスクリセット`,
+            body: `「${task.name}」がリセットされました`,
+            data: { 
+              gameId: game.id, 
+              taskId: task.id, 
+              timeStr: timeStr,
+              type: 'after_reset'
+            },
           },
-        },
-        trigger: nextResetTime,
-        identifier: afterId
-      });
-      
-      this.log(`タスク ${task.id} (${task.name}) のリセット通知をスケジュールしました:`, {
-        時間: timeStr,
-        予定日時: nextResetTime.toLocaleString()
-      });
-      scheduledCount++;
+          trigger: nextResetTime,
+          identifier: afterId
+        });
+        
+        this.log(`タスク ${task.id} (${task.name}) のリセット通知をスケジュールしました:`, {
+          時間: timeStr,
+          予定日時: nextResetTime.toLocaleString()
+        });
+        scheduledCount++;
+      }
       
       return scheduledCount > 0;
     } catch (error) {
@@ -283,9 +384,9 @@ class NotificationService {
   // タスクのリセット通知をスケジュール (日付対応版)
   static async scheduleTaskResetNotification(game: Game, task: DailyTask): Promise<boolean> {
     try {
-      // 通知が有効かチェック
-      const isEnabled = await this.getTaskNotificationSetting(task.id);
-      if (!isEnabled) {
+      // 通知設定を取得
+      const settings = await this.getTaskNotificationSettings(task.id);
+      if (!settings.enabled) {
         // 通知が無効な場合は既存の通知をキャンセルして終了
         await this.cancelTaskNotifications(task.id);
         this.log(`タスク ${task.id} (${task.name}) の通知は無効なためスキップします`);
@@ -309,13 +410,13 @@ class NotificationService {
         // 終了時間が指定されている場合はそれを使用、なければ通知を23:55に設定
         if (task.resetSettings.endTime) {
           const [hours, minutes] = task.resetSettings.endTime.split(':').map(Number);
-          // 通知は5分前に送信
-          if (minutes >= 5) {
-            endDate.setHours(hours, minutes - 5, 0, 0);
+          // 通知は設定した分前に送信
+          if (minutes >= settings.beforeMinutes) {
+            endDate.setHours(hours, minutes - settings.beforeMinutes, 0, 0);
           } else {
             // 時間をまたぐ場合（例：00:03 → 前の時間の23:58）
             const newHours = hours === 0 ? 23 : hours - 1;
-            const newMinutes = minutes + 55; // 60 - 5 + minutes
+            const newMinutes = minutes + 60 - settings.beforeMinutes;
             endDate.setHours(newHours, newMinutes, 0, 0);
           }
         } else {
@@ -338,7 +439,7 @@ class NotificationService {
         await Notifications.scheduleNotificationAsync({
           content: {
             title: `${game.name} タスク完了期限まもなく`,
-            body: `「${task.name}」の完了期限があと5分で終了します`,
+            body: `「${task.name}」の完了期限があと${settings.beforeMinutes}分で終了します`,
             data: { 
               gameId: game.id, 
               taskId: task.id, 
@@ -373,7 +474,7 @@ class NotificationService {
       
       // 各リセット時間に通知をスケジュール
       const results = await Promise.all(resetTimes.map(timeStr => 
-        this.scheduleNextNotificationForTime(game, task, timeStr)
+        this.scheduleNextNotificationForTimeWithSettings(game, task, timeStr, settings)
       ));
       
       const successCount = results.filter(Boolean).length;
@@ -504,6 +605,38 @@ class NotificationService {
       return true;
     } catch (error) {
       console.error('通知の初期セットアップに失敗:', error);
+      return false;
+    }
+  }
+  
+  // 通知初期化の改善版 - App.tsx から呼び出される
+  static async initializeNotifications(games: Game[]): Promise<boolean> {
+    try {
+      // すでに初期化済みかチェック
+      const isAlreadyInitialized = await this.isInitialized();
+      
+      // デバッグモードがONの場合はこの情報をログに出力
+      if (this.DEBUG_MODE) {
+        console.log(`[通知サービス] 初期化状態: ${isAlreadyInitialized ? '初期化済み' : '未初期化'}`);
+      }
+      
+      // 通知権限の確認
+      const { status } = await this.requestPermissions();
+      if (status !== 'granted') {
+        this.log('通知の権限が許可されていません');
+        return false;
+      }
+      
+      // 既に初期化済みなら通知の更新のみ行う
+      if (isAlreadyInitialized) {
+        return await this.updateAllTaskNotifications(games);
+      }
+      
+      // 初期化が済んでいない場合は初期セットアップを実行
+      const setupResult = await this.initialSetup(games);
+      return setupResult;
+    } catch (error) {
+      console.error('通知初期化に失敗しました:', error);
       return false;
     }
   }

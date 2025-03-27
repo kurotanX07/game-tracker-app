@@ -16,7 +16,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import NotificationService from '../services/NotificationService';
+import NotificationService, { TaskNotificationSettings } from '../services/NotificationService';
+import { formatDateForDisplay, getTimeAsDate } from '../utils/dateUtils';
+import { ToastService } from '../services/ToastService';
 
 const TaskSettingsScreen: React.FC = () => {
   const route = useRoute();
@@ -55,6 +57,14 @@ const TaskSettingsScreen: React.FC = () => {
   
   // 通知設定の状態
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<{
+    beforeMinutes: number;
+    notifyOnReset: boolean;
+  }>({
+    beforeMinutes: 5,
+    notifyOnReset: true
+  });
+  
   // 処理中フラグを追加
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -63,8 +73,12 @@ const TaskSettingsScreen: React.FC = () => {
     if (task) {
       const loadNotificationSetting = async () => {
         try {
-          const enabled = await NotificationService.getTaskNotificationSetting(task.id);
-          setNotificationsEnabled(enabled);
+          const settings = await NotificationService.getTaskNotificationSettings(task.id);
+          setNotificationsEnabled(settings.enabled);
+          setNotificationSettings({
+            beforeMinutes: settings.beforeMinutes,
+            notifyOnReset: settings.notifyOnReset
+          });
         } catch (error) {
           console.error('通知設定の読み込みエラー:', error);
         }
@@ -153,20 +167,6 @@ const TaskSettingsScreen: React.FC = () => {
       Alert.alert('エラー', '少なくとも1つのリセット時間が必要です');
     }
   };
-
-  // 時間文字列をDate型に変換
-  const getTimeAsDate = (timeString: string): Date => {
-    const [hours, minutes] = timeString.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date;
-  };
-  
-  // 日付をフォーマット
-  const formatDate = (date: Date | null): string => {
-    if (!date) return '日付を選択';
-    return date.toLocaleDateString();
-  };
   
   // 通知設定変更ハンドラ
   const handleToggleNotification = async (value: boolean) => {
@@ -192,7 +192,11 @@ const TaskSettingsScreen: React.FC = () => {
         }
         
         // 設定を保存
-        await NotificationService.saveTaskNotificationSetting(task.id, value);
+        await NotificationService.saveTaskNotificationSettings(task.id, {
+          enabled: value,
+          beforeMinutes: notificationSettings.beforeMinutes,
+          notifyOnReset: notificationSettings.notifyOnReset
+        });
         
         // まず既存の通知をキャンセル
         await NotificationService.cancelTaskNotifications(task.id);
@@ -210,7 +214,11 @@ const TaskSettingsScreen: React.FC = () => {
         }
       } else {
         // 通知を無効にする場合
-        await NotificationService.saveTaskNotificationSetting(task.id, value);
+        await NotificationService.saveTaskNotificationSettings(task.id, {
+          enabled: value,
+          beforeMinutes: notificationSettings.beforeMinutes,
+          notifyOnReset: notificationSettings.notifyOnReset
+        });
         
         // 既存の通知をキャンセル
         const canceled = await NotificationService.cancelTaskNotifications(task.id);
@@ -227,21 +235,58 @@ const TaskSettingsScreen: React.FC = () => {
     }
   };
   
+  // 通知タイミング変更ハンドラ
+  const handleNotificationMinutesChange = (value: number) => {
+    setNotificationSettings({
+      ...notificationSettings,
+      beforeMinutes: Math.max(0, value)
+    });
+  };
+  
+  // リセット時通知設定変更ハンドラ
+  const handleToggleResetNotification = (value: boolean) => {
+    setNotificationSettings({
+      ...notificationSettings,
+      notifyOnReset: value
+    });
+  };
+  
+  // 通知設定を保存
+  const saveNotificationSettings = async () => {
+    try {
+      if (notificationsEnabled) {
+        await NotificationService.saveTaskNotificationSettings(task.id, {
+          enabled: true,
+          beforeMinutes: notificationSettings.beforeMinutes,
+          notifyOnReset: notificationSettings.notifyOnReset
+        });
+        
+        // 既存の通知をキャンセルして再スケジュール
+        await NotificationService.cancelTaskNotifications(task.id);
+        await NotificationService.scheduleTaskResetNotification(game, task);
+      }
+    } catch (error) {
+      console.error('通知設定の保存に失敗:', error);
+      ToastService.showError(error, '通知設定の保存に失敗しました');
+    }
+  };
+
   // 設定保存ハンドラ
   const handleSave = async () => {
+    // すでに処理中なら早期リターン
+    if (isProcessing) return;
+    
     try {
       setIsProcessing(true);
       
       // リセットタイプによるバリデーション
       if (resetType === 'custom' && resetTimes.length === 0) {
         Alert.alert('エラー', '少なくとも1つのリセット時間を設定してください');
-        setIsProcessing(false);
         return;
       }
       
       if (resetType === 'date' && !endDate) {
         Alert.alert('エラー', 'リセット日を選択してください');
-        setIsProcessing(false);
         return;
       }
       
@@ -263,31 +308,15 @@ const TaskSettingsScreen: React.FC = () => {
       
       await updateTaskSettings(gameId, taskId, settings);
       
-      // 設定変更後に通知を更新 (通知有効時のみ)
-      if (notificationsEnabled) {
-        // まず既存の通知をキャンセル
-        await NotificationService.cancelTaskNotifications(task.id);
-        
-        // 更新された設定で通知をスケジュール
-        const updatedTask = {
-          ...task,
-          resetSettings: {
-            ...task.resetSettings,
-            ...settings
-          }
-        };
-        
-        await NotificationService.scheduleTaskResetNotification(
-          { ...game, dailyTasks: [updatedTask] },
-          updatedTask
-        );
-      }
+      // 通知設定を保存
+      await saveNotificationSettings();
       
-      setIsProcessing(false);
       navigation.goBack();
     } catch (error) {
+      // ToastService を使用してエラーを表示
+      ToastService.showError(error, '設定の保存に失敗しました');
+    } finally {
       setIsProcessing(false);
-      Alert.alert('エラー', '設定の保存に失敗しました');
     }
   };
 
@@ -346,11 +375,59 @@ const TaskSettingsScreen: React.FC = () => {
             />
           </View>
           
+          {/* 通知が有効な場合のみ詳細設定を表示 */}
+          {notificationsEnabled && (
+            <View style={[styles.notificationSettings, { borderTopColor: colors.border }]}>
+              {/* リセット前の通知タイミング設定 */}
+              <View style={styles.settingRow}>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                  リセット前通知
+                </Text>
+                <View style={styles.minutesPicker}>
+                  <TouchableOpacity
+                    style={[styles.minutesButton, { borderColor: colors.border }]}
+                    onPress={() => handleNotificationMinutesChange(Math.max(0, notificationSettings.beforeMinutes - 5))}
+                    disabled={notificationSettings.beforeMinutes <= 0}
+                  >
+                    <Text style={{ color: colors.text }}>-</Text>
+                  </TouchableOpacity>
+                  
+                  <Text style={[styles.minutesText, { color: colors.text }]}>
+                    {notificationSettings.beforeMinutes > 0 
+                      ? `${notificationSettings.beforeMinutes}分前` 
+                      : 'なし'}
+                  </Text>
+                  
+                  <TouchableOpacity
+                    style={[styles.minutesButton, { borderColor: colors.border }]}
+                    onPress={() => handleNotificationMinutesChange(notificationSettings.beforeMinutes + 5)}
+                  >
+                    <Text style={{ color: colors.text }}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* リセット時の通知設定 */}
+              <View style={styles.settingRow}>
+                <Text style={[styles.settingLabel, { color: colors.text }]}>
+                  リセット時に通知
+                </Text>
+                <Switch
+                  value={notificationSettings.notifyOnReset}
+                  onValueChange={handleToggleResetNotification}
+                  trackColor={{ false: '#DDDDDD', true: colors.primary }}
+                  thumbColor="#FFFFFF"
+                  disabled={isProcessing}
+                />
+              </View>
+            </View>
+          )}
+          
           <View style={styles.infoBox}>
             <Ionicons name="notifications-outline" size={20} color={colors.primary} style={styles.infoIcon} />
             <Text style={[styles.infoText, { color: colors.subText }]}>
               {notificationsEnabled
-                ? 'リセット時間の5分前と、リセット時間に通知が届きます'
+                ? `リセット${notificationSettings.beforeMinutes > 0 ? `${notificationSettings.beforeMinutes}分前` : ''}${notificationSettings.beforeMinutes > 0 && notificationSettings.notifyOnReset ? 'と' : ''}${notificationSettings.notifyOnReset ? 'リセット時' : ''}に通知が届きます`
                 : '通知はオフになっています'}
             </Text>
           </View>
@@ -531,7 +608,7 @@ const TaskSettingsScreen: React.FC = () => {
                 >
                   <Ionicons name="calendar-outline" size={20} color={colors.text} style={styles.calendarIcon} />
                   <Text style={[styles.dateText, { color: colors.text }]}>
-                    {endDate ? formatDate(endDate) : '日付を選択'}
+                    {endDate ? formatDateForDisplay(endDate) : '日付を選択'}
                   </Text>
                 </TouchableOpacity>
                 
@@ -638,8 +715,11 @@ const TaskSettingsScreen: React.FC = () => {
           ]} 
           onPress={() => navigation.goBack()}
           disabled={isProcessing}
+          accessible={true}
+          accessibilityLabel="設定をキャンセルして戻る"
+          accessibilityRole="button"
         >
-          <Text style={[styles.cancelButtonText, { color: colors.subText }]}>キャンセル</Text>
+          <Text style={[styles.cancelButtonText, { color: colors.subText }]}>戻る</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[
@@ -651,6 +731,9 @@ const TaskSettingsScreen: React.FC = () => {
           ]} 
           onPress={handleSave}
           disabled={isProcessing}
+          accessible={true}
+          accessibilityLabel="設定を保存する"
+          accessibilityRole="button"
         >
           <Text style={styles.saveButtonText}>
             {isProcessing ? '処理中...' : '保存'}
@@ -661,7 +744,7 @@ const TaskSettingsScreen: React.FC = () => {
   );
 };
 
-// スタイル定義を拡張
+// スタイル定義
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -887,6 +970,32 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  // 通知設定のスタイル
+  notificationSettings: {
+    marginTop: 8,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  minutesPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  minutesButton: {
+    width: 30,
+    height: 30,
+    borderWidth: 1,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  minutesText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    width: 60,
+    textAlign: 'center',
   },
 });
 

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTaskContext } from '../contexts/TaskContext';
+import TaskListComponent from '../components/TaskListComponent'; 
 import { DailyTaskItem, CustomTaskItem } from '../components/TaskItem';
 import { CustomTask } from '../@types';
 import { v4 as uuidv4 } from 'uuid';

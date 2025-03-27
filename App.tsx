@@ -10,6 +10,7 @@ import NotificationService from './src/services/NotificationService';
 import { View, StyleSheet } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ToastService } from './src/services/ToastService';
 
 // 通知設定の初期化
 Notifications.setNotificationHandler({
@@ -19,9 +20,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
-
-// 通知初期化済みチェック用のキー
-const NOTIFICATION_INIT_CHECK_KEY = 'notification_init_session';
 
 // Theme-aware NavigationContainer wrapper
 const ThemedApp = () => {
@@ -35,35 +33,22 @@ const ThemedApp = () => {
   const notificationListener = useRef<Notifications.Subscription>();
   const responseListener = useRef<Notifications.Subscription>();
   
+  // 通知初期化関数 - 改善版
+  const initNotifications = async () => {
+    try {
+      // 通知サービスの改善された初期化メソッドを使用
+      const result = await NotificationService.initializeNotifications(games);
+      setNotificationsInitialized(true);
+      console.log(`通知初期化結果: ${result ? '成功' : '失敗'}`);
+    } catch (error) {
+      console.error('通知初期化エラー:', error);
+      ToastService.showError(error, '通知の初期化中にエラーが発生しました');
+      setNotificationsInitialized(true); // エラー時も初期化完了とマーク
+    }
+  };
+  
   // Initialize Notifications when app starts
   useEffect(() => {
-    // 通知のタスクスケジュール (改善版)
-// ThemedApp コンポーネント内の通知初期化関数
-const initNotifications = async () => {
-  try {
-    // このセッションで既に初期化済みかチェック
-    const isInitializedThisSession = await AsyncStorage.getItem(NOTIFICATION_INIT_CHECK_KEY);
-    
-    if (isInitializedThisSession === 'true') {
-      console.log('このセッションで既に通知が初期化されています。スキップします。');
-      setNotificationsInitialized(true);
-      return;
-    }
-    
-    // 通知の初期セットアップを一度だけ実行
-    // 初回起動時にはリセットのみ行い、通知のスケジュールは行わない
-    await NotificationService.initialSetup(games);
-    
-    // このセッションでの初期化完了をマーク
-    await AsyncStorage.setItem(NOTIFICATION_INIT_CHECK_KEY, 'true');
-    setNotificationsInitialized(true);
-    console.log('通知の初期化が完了しました');
-  } catch (error) {
-    console.error('通知初期化エラー:', error);
-    setNotificationsInitialized(true); // エラー時も初期化完了とマーク
-  }
-};
-    
     // 通知初期化を実行
     if (!notificationsInitialized) {
       initNotifications();
@@ -130,20 +115,6 @@ const initNotifications = async () => {
 };
 
 const App = () => {
-  // アプリ起動時にセッション初期化フラグをリセット
-  useEffect(() => {
-    const resetSessionFlag = async () => {
-      try {
-        await AsyncStorage.removeItem(NOTIFICATION_INIT_CHECK_KEY);
-        console.log('通知セッションフラグをリセットしました');
-      } catch (error) {
-        console.error('セッションフラグリセットエラー:', error);
-      }
-    };
-    
-    resetSessionFlag();
-  }, []);
-  
   return (
     <SafeAreaProvider>
       <ThemeProvider>
