@@ -326,7 +326,7 @@ const SettingsScreen: React.FC = () => {
 
         <View style={styles.appInfo}>
           <Text style={[styles.appVersion, { color: colors.subText }]}>バージョン: 1.0.0</Text>
-          <Text style={[styles.copyright, { color: colors.subText }]}>© 2025 ゲームデイリータスク</Text>
+          <Text style={[styles.copyright, { color: colors.subText }]}>© 2025 デイリータスク</Text>
         </View>
       </ScrollView>
 

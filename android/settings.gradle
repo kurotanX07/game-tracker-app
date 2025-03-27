@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'デーリータスク管理'
+rootProject.name = 'デイリータスク管理'
 
 dependencyResolutionManagement {
   versionCatalogs {
