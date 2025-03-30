@@ -1,4 +1,4 @@
-package com.anonymous.gametrackerapp
+package com.anonymous.dailytaskmanagerapp
 
 import android.os.Build
 import android.os.Bundle

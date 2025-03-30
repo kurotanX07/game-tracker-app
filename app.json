@@ -4,9 +4,9 @@
     "slug": "daily-task-manager-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": null,
+    "icon": "./assets/app-icon.png",
     "splash": {
-      "image": null,
+      "image": "./assets/splash-screen.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
