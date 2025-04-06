@@ -16,25 +16,16 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "ios": {
-      "supportsTablet": true,
-      "config": {
-        "googleMobileAdsAppId": "ca-app-pub-3940256099942544~1458002511"
-      }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": null,
-        "backgroundColor": "#FFFFFF"
-      },
-      "config": {
-        "googleMobileAdsAppId": "ca-app-pub-3940256099942544~3347511713"
-      },
       "package": "com.anonymous.dailytaskmanagerapp"
     },
     "web": {
       "favicon": null
     },
-    "newArchEnabled": true
+    "newArchEnabled": true,
+    "extra": {
+      "eas": {
+        "projectId": "25bd6277-2a7f-43ec-a283-32c2082b137d"
+      }
+    }
   }
 }

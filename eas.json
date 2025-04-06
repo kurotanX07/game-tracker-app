@@ -1,0 +1,14 @@
+{
+    "build": {
+      "preview": {
+        "distribution": "internal",
+        "android": {
+          "buildType": "apk",
+          "gradleCommand": ":app:assembleRelease",
+          "env": {
+            "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx2048m"
+          }
+        }
+      }
+    }
+  }
