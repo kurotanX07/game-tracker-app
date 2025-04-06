@@ -16,10 +16,18 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
       "package": "com.anonymous.dailytaskmanagerapp"
     },
     "web": {
-      "favicon": null
+      "favicon": "./assets/app-icon.png"
     },
     "newArchEnabled": true,
     "extra": {
